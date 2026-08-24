@@ -24,6 +24,9 @@ return [
         'http://127.0.0.1:5173',
         'http://suncash.test',
         'http://suncash_api.test',
+        'http://18.117.188.150',
+        'http://php.suncash.com',
+        'https://php.suncash.com',
     ],
 
     'allowed_origins_patterns' => [],
