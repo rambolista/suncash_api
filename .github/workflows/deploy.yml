@@ -1,0 +1,42 @@
+name: Deploy suncash_api
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd ${{ secrets.SSH_DEPLOY_PATH_API }}
+
+            echo "==> Pulling latest code..."
+            git pull origin main
+
+            echo "==> Installing PHP dependencies..."
+            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+            echo "==> Caching config & routes..."
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            echo "==> Running migrations..."
+            php artisan migrate --force
+
+            echo "==> Restarting queue workers..."
+            php artisan queue:restart
+
+            echo "==> Done."

@@ -64,6 +64,26 @@ return [
             ]) : [],
         ],
 
+        // dev_mysuncash — legacy SunCash transactional database
+        'mysuncash' => [
+            'driver' => 'mysql',
+            'host' => env('MYSUNCASH_DB_HOST', '127.0.0.1'),
+            'port' => env('MYSUNCASH_DB_PORT', '3306'),
+            'database' => env('MYSUNCASH_DB_DATABASE', 'dev_mysuncash'),
+            'username' => env('MYSUNCASH_DB_USERNAME', 'root'),
+            'password' => env('MYSUNCASH_DB_PASSWORD', ''),
+            'unix_socket' => env('MYSUNCASH_DB_SOCKET', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => false,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
