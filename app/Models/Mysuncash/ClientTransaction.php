@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Merchant-facing account ledger entry (mirrors transactions_model::client_transaction_registration). */
 #[Fillable([
     'client_record_id', 'user_type_id', 'ref_trans_id', 'trans_type_id', 'amount', 'description',
-    'timestamp', 'running_balance', 'available_balance', 'onhold_balance',
+    'timestamp', 'is_merchant', 'merchant_id', 'running_balance', 'available_balance', 'onhold_balance',
 ])]
 class ClientTransaction extends Model
 {

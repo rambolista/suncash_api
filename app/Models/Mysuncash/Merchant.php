@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'client_status_id', 'user_id_create', 'user_id_modify', 'creation_date', 'modification_date',
     'legal_name', 'dba_name', 'tax_id', 'merchant_name', 'phone_no', 'reseller_name', 'reseller_type',
     'merchant_key', 'fax_no', 'is_ezpay', 'ezpay_access', 'merchant_type_id', 'registration_status', 'suntag_shortcode',
+    'is_auto_replenish', 'auto_replenish_amount', 'min_auto_replenish_amount', 'replenishment_remarks',
+    'commi_type_id', 'commi_fixed', 'commi_percentage', 'wu_commi_percentage',
+    'reserve_account', 'cash_float_account',
 ])]
 class Merchant extends Model
 {
@@ -119,5 +122,35 @@ class Merchant extends Model
     public function userAccounts(): HasMany
     {
         return $this->hasMany(UserAccount::class, 'user_reference')->where('user_type_id', 1);
+    }
+
+    public function branches(): HasMany
+    {
+        return $this->hasMany(Branch::class, 'client_record_id');
+    }
+
+    public function terminals(): HasMany
+    {
+        return $this->hasMany(Terminal::class, 'client_id');
+    }
+
+    public function posUsers(): HasMany
+    {
+        return $this->hasMany(MerchantTerminalUser::class, 'merchant_id');
+    }
+
+    public function agentCommissionEmails(): HasMany
+    {
+        return $this->hasMany(AgentCommissionEmail::class, 'client_record_id');
+    }
+
+    public function storeFloatSetting(): HasOne
+    {
+        return $this->hasOne(CashierStoreFloatSetting::class, 'merchant_id');
+    }
+
+    public function storeFloatAccounts(): HasMany
+    {
+        return $this->hasMany(CashierStoreFloatAccount::class, 'merchant_id');
     }
 }

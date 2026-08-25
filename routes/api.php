@@ -4,8 +4,13 @@ use App\Http\Controllers\Api\AccessManagement\MenuController;
 use App\Http\Controllers\Api\AccessManagement\MenuIconController;
 use App\Http\Controllers\Api\AccessManagement\CustomerController;
 use App\Http\Controllers\Api\AccessManagement\CustomerMenuController;
+use App\Http\Controllers\Api\AccessManagement\MerchantBranchController;
 use App\Http\Controllers\Api\AccessManagement\MerchantController;
+use App\Http\Controllers\Api\AccessManagement\MerchantFloatAccountController;
+use App\Http\Controllers\Api\AccessManagement\MerchantMoneyController;
 use App\Http\Controllers\Api\AccessManagement\MerchantOperationsController;
+use App\Http\Controllers\Api\AccessManagement\MerchantPosUserController;
+use App\Http\Controllers\Api\AccessManagement\MerchantTerminalController;
 use App\Http\Controllers\Api\AccessManagement\RoleController;
 use App\Http\Controllers\Api\AccessManagement\UserController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
@@ -150,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/check-id', [MerchantController::class, 'checkId']);
             Route::get('/check-username', [MerchantController::class, 'checkUsername']);
             Route::post('/logo-upload', [MerchantController::class, 'uploadLogo']);
+            Route::get('/branches/islands', [MerchantBranchController::class, 'islands']);
             Route::post('/', [MerchantController::class, 'store']);
             Route::get('/{id}', [MerchantController::class, 'show'])->whereNumber('id');
             Route::put('/{id}', [MerchantController::class, 'update'])->whereNumber('id');
@@ -165,6 +171,40 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::put('/ezpay-access', [MerchantOperationsController::class, 'updateEzpayAccess']);
                 Route::get('/services', [MerchantOperationsController::class, 'listServices']);
                 Route::put('/services', [MerchantOperationsController::class, 'updateServices']);
+
+                // Prefund / Auto Replenish / Agent Commission Settings
+                Route::post('/prefund', [MerchantMoneyController::class, 'adjustPrefund']);
+                Route::get('/auto-replenish', [MerchantMoneyController::class, 'showAutoReplenish']);
+                Route::put('/auto-replenish', [MerchantMoneyController::class, 'updateAutoReplenish']);
+                Route::get('/agent-commission', [MerchantMoneyController::class, 'showAgentCommission']);
+                Route::put('/agent-commission', [MerchantMoneyController::class, 'updateAgentCommission']);
+                Route::post('/agent-commission/emails', [MerchantMoneyController::class, 'addAgentCommissionEmail']);
+                Route::put('/agent-commission/emails/{emailId}', [MerchantMoneyController::class, 'updateAgentCommissionEmail'])->whereNumber('emailId');
+                Route::delete('/agent-commission/emails/{emailId}', [MerchantMoneyController::class, 'deleteAgentCommissionEmail'])->whereNumber('emailId');
+
+                // Branches
+                Route::get('/branches', [MerchantBranchController::class, 'index']);
+                Route::post('/branches', [MerchantBranchController::class, 'store']);
+                Route::put('/branches/{branchId}', [MerchantBranchController::class, 'update'])->whereNumber('branchId');
+                Route::post('/branches/{branchId}/status', [MerchantBranchController::class, 'changeStatus'])->whereNumber('branchId');
+
+                // Terminals
+                Route::get('/terminals', [MerchantTerminalController::class, 'index']);
+                Route::post('/terminals', [MerchantTerminalController::class, 'store']);
+                Route::put('/terminals/{terminalId}', [MerchantTerminalController::class, 'update'])->whereNumber('terminalId');
+                Route::post('/terminals/{terminalId}/status', [MerchantTerminalController::class, 'changeStatus'])->whereNumber('terminalId');
+
+                // POS Users
+                Route::get('/pos-users', [MerchantPosUserController::class, 'index']);
+                Route::post('/pos-users', [MerchantPosUserController::class, 'store']);
+                Route::put('/pos-users/{userId}', [MerchantPosUserController::class, 'update'])->whereNumber('userId');
+                Route::delete('/pos-users/{userId}', [MerchantPosUserController::class, 'destroy'])->whereNumber('userId');
+
+                // Store Float Account
+                Route::get('/float-account', [MerchantFloatAccountController::class, 'show']);
+                Route::post('/float-account/toggle', [MerchantFloatAccountController::class, 'toggle']);
+                Route::post('/float-account/request', [MerchantFloatAccountController::class, 'request']);
+                Route::put('/float-account', [MerchantFloatAccountController::class, 'update']);
             });
         });
 
