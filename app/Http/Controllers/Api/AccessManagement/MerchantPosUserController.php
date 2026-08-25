@@ -19,7 +19,7 @@ class MerchantPosUserController extends Controller
 
     private function forbidden(Request $request, string $action): ?JsonResponse
     {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
+        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, 'pos-users', $action)
             ? null
             : response()->json(['message' => 'Forbidden.'], 403);
     }

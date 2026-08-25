@@ -126,6 +126,35 @@ abstract class Controller
         return (bool) ($permission[$action] ?? false);
     }
 
+    /**
+     * Like userHasPermission(), but scoped to a single tab within a menu
+     * (e.g. one action panel on the Merchant Management tabbed view).
+     */
+    protected function userHasTabPermission(object $user, string $routePath, string $tabKey, string $action): bool
+    {
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        $normalizedRoutePath = $this->normalizeRoute($routePath);
+
+        $menu = collect($this->buildMenuPermissionsPayload($user))->first(function ($menu) use ($normalizedRoutePath) {
+            $menuUrl = $this->normalizeRoute($menu['url'] ?? '');
+            $menuSlug = $this->normalizeRoute($menu['slug'] ?? '');
+            $segments = explode('/', trim($normalizedRoutePath, '/'));
+            $lastSegment = $this->normalizeRoute($normalizedRoutePath === '/' ? '' : ($segments[count($segments) - 1] ?? ''));
+
+            return $menuUrl === $normalizedRoutePath
+                || $menuSlug === $normalizedRoutePath
+                || $menuSlug === $lastSegment
+                || $menuUrl === $lastSegment;
+        });
+
+        $tab = collect($menu['tabs'] ?? [])->first(fn ($tab) => $tab['key'] === $tabKey);
+
+        return (bool) ($tab[$action] ?? false);
+    }
+
     protected function normalizeRoute(?string $routePath): string
     {
         if ($routePath === null) {

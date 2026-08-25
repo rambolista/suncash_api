@@ -16,9 +16,9 @@ class MerchantOperationsController extends Controller
     {
     }
 
-    private function forbidden(Request $request, string $action): ?JsonResponse
+    private function forbidden(Request $request, string $tabKey, string $action): ?JsonResponse
     {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
+        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, $tabKey, $action)
             ? null
             : response()->json(['message' => 'Forbidden.'], 403);
     }
@@ -37,7 +37,7 @@ class MerchantOperationsController extends Controller
 
     public function showPrincipalInfo(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'principal-info', 'can_view')) {
             return $response;
         }
 
@@ -46,7 +46,7 @@ class MerchantOperationsController extends Controller
 
     public function savePrincipalInfo(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbidden($request, 'principal-info', 'can_edit')) {
             return $response;
         }
 
@@ -63,7 +63,7 @@ class MerchantOperationsController extends Controller
 
     public function resetPassword(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbidden($request, 'password', 'can_edit')) {
             return $response;
         }
 
@@ -83,7 +83,7 @@ class MerchantOperationsController extends Controller
 
     public function listUsers(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'user-management', 'can_view')) {
             return $response;
         }
 
@@ -92,7 +92,7 @@ class MerchantOperationsController extends Controller
 
     public function addUser(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbidden($request, 'user-management', 'can_edit')) {
             return $response;
         }
 
@@ -109,7 +109,7 @@ class MerchantOperationsController extends Controller
 
     public function toggleStatus(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbidden($request, 'deactivate', 'can_edit')) {
             return $response;
         }
 
@@ -128,7 +128,7 @@ class MerchantOperationsController extends Controller
 
     public function showEzpayAccess(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'ezpay-access', 'can_view')) {
             return $response;
         }
 
@@ -140,7 +140,7 @@ class MerchantOperationsController extends Controller
 
     public function updateEzpayAccess(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbidden($request, 'ezpay-access', 'can_edit')) {
             return $response;
         }
 
@@ -157,7 +157,7 @@ class MerchantOperationsController extends Controller
 
     public function listServices(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'services-permission', 'can_view')) {
             return $response;
         }
 
@@ -166,7 +166,7 @@ class MerchantOperationsController extends Controller
 
     public function updateServices(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbidden($request, 'services-permission', 'can_edit')) {
             return $response;
         }
 
