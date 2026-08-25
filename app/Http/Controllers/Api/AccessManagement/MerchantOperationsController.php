@@ -71,7 +71,7 @@ class MerchantOperationsController extends Controller
 
     public function resetPassword(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'password', 'can_edit')) {
+        if ($response = $this->forbiddenAtModuleLevel($request, 'can_edit')) {
             return $response;
         }
 
