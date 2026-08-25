@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AccessManagement\MenuController;
 use App\Http\Controllers\Api\AccessManagement\MenuIconController;
 use App\Http\Controllers\Api\AccessManagement\CustomerController;
 use App\Http\Controllers\Api\AccessManagement\CustomerMenuController;
+use App\Http\Controllers\Api\AccessManagement\MerchantController;
+use App\Http\Controllers\Api\AccessManagement\MerchantOperationsController;
 use App\Http\Controllers\Api\AccessManagement\RoleController;
 use App\Http\Controllers\Api\AccessManagement\UserController;
 use App\Http\Controllers\Api\Auth\ChangePasswordController;
@@ -25,6 +27,7 @@ use App\Http\Controllers\Api\CustomerAuth\TwoFactorSettingsController as Custome
 use App\Http\Controllers\Api\CustomerAuth\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Api\CustomerAuth\ResetPasswordController as CustomerResetPasswordController;
 use App\Http\Controllers\Api\CustomerProfileController;
+use App\Http\Controllers\Api\Dashboard\MerchantDashboardController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
@@ -130,12 +133,40 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{landingPage}/sections/{section}/items/{item}', [LandingPageSectionItemController::class, 'destroy']);
     });
 
+    // Dashboard
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/merchants', [MerchantDashboardController::class, 'index']);
+    });
+
     // Access Management — Menus
     Route::prefix('access-management')->group(function () {
         Route::get('/menu-icons', [MenuIconController::class, 'index']);
         Route::apiResource('/menus', MenuController::class);
         Route::apiResource('/customer-menus', CustomerMenuController::class);
         Route::apiResource('/customers', CustomerController::class);
+
+        Route::prefix('merchants')->group(function () {
+            Route::get('/', [MerchantController::class, 'index']);
+            Route::get('/check-id', [MerchantController::class, 'checkId']);
+            Route::get('/check-username', [MerchantController::class, 'checkUsername']);
+            Route::post('/logo-upload', [MerchantController::class, 'uploadLogo']);
+            Route::post('/', [MerchantController::class, 'store']);
+            Route::get('/{id}', [MerchantController::class, 'show'])->whereNumber('id');
+            Route::put('/{id}', [MerchantController::class, 'update'])->whereNumber('id');
+
+            Route::prefix('/{id}')->whereNumber('id')->group(function () {
+                Route::get('/principal-info', [MerchantOperationsController::class, 'showPrincipalInfo']);
+                Route::put('/principal-info', [MerchantOperationsController::class, 'savePrincipalInfo']);
+                Route::post('/reset-password', [MerchantOperationsController::class, 'resetPassword']);
+                Route::get('/users', [MerchantOperationsController::class, 'listUsers']);
+                Route::post('/users', [MerchantOperationsController::class, 'addUser']);
+                Route::post('/toggle-status', [MerchantOperationsController::class, 'toggleStatus']);
+                Route::get('/ezpay-access', [MerchantOperationsController::class, 'showEzpayAccess']);
+                Route::put('/ezpay-access', [MerchantOperationsController::class, 'updateEzpayAccess']);
+                Route::get('/services', [MerchantOperationsController::class, 'listServices']);
+                Route::put('/services', [MerchantOperationsController::class, 'updateServices']);
+            });
+        });
 
         // Roles
         Route::get('/roles/{role}/menu-permissions', [RoleController::class, 'menuPermissions']);
