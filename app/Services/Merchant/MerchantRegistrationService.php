@@ -86,7 +86,7 @@ class MerchantRegistrationService
      */
     public function getMerchant(int $id): array
     {
-        $merchant = Merchant::with(['merchantDetail', 'feeCommissions'])->find($id);
+        $merchant = Merchant::with(['merchantDetail', 'feeCommissions', 'clientStatus'])->find($id);
         if (! $merchant) {
             throw ValidationException::withMessages(['id' => ['Merchant not found.']]);
         }
@@ -105,8 +105,10 @@ class MerchantRegistrationService
         return [
             'id' => $merchant->id,
             'merchant_id' => $merchant->client_id,
+            'client_id' => $merchant->client_id,
             'username' => $merchant->user_name,
             'exact_legal_name' => $merchant->legal_name,
+            'legal_name' => $merchant->legal_name,
             'doing_business_as' => $merchant->merchant_name,
             'dba_name' => $merchant->dba_name,
             'tax_id' => $merchant->tax_id,
@@ -114,6 +116,8 @@ class MerchantRegistrationService
             'contactphone' => $merchant->phone_no,
             'contactfax' => $merchant->fax_no,
             'registration_status' => $merchant->registration_status,
+            'account_status' => $merchant->clientStatus->status ?? 'active',
+            'client_prefund' => (float) $merchant->client_prefund,
             'ezpay_merchant' => ($merchant->is_ezpay ?? '0') === '1',
             'logo' => $details->logo ?? '',
             'address1' => $details->address1 ?? '',

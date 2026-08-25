@@ -23,6 +23,14 @@ class MerchantOperationsController extends Controller
             : response()->json(['message' => 'Forbidden.'], 403);
     }
 
+    /** Deactivate/Activate lives on the merchant list itself, not a Manage-panel tab — gated by the module's own can_edit. */
+    private function forbiddenAtModuleLevel(Request $request, string $action): ?JsonResponse
+    {
+        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
+            ? null
+            : response()->json(['message' => 'Forbidden.'], 403);
+    }
+
     private function notFound(ValidationException $exception): JsonResponse
     {
         return response()->json(['message' => 'Merchant not found.', 'errors' => $exception->errors()], 404);
@@ -109,7 +117,7 @@ class MerchantOperationsController extends Controller
 
     public function toggleStatus(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'deactivate', 'can_edit')) {
+        if ($response = $this->forbiddenAtModuleLevel($request, 'can_edit')) {
             return $response;
         }
 
