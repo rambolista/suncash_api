@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\Api\AccessManagement\MenuController;
-use App\Http\Controllers\Api\AccessManagement\MenuIconController;
 use App\Http\Controllers\Api\AccessManagement\CustomerController;
 use App\Http\Controllers\Api\AccessManagement\CustomerMenuController;
+use App\Http\Controllers\Api\AccessManagement\MenuController;
+use App\Http\Controllers\Api\AccessManagement\MenuIconController;
 use App\Http\Controllers\Api\AccessManagement\MerchantBranchController;
 use App\Http\Controllers\Api\AccessManagement\MerchantController;
 use App\Http\Controllers\Api\AccessManagement\MerchantFloatAccountController;
@@ -27,10 +27,10 @@ use App\Http\Controllers\Api\Auth\UnlockController;
 use App\Http\Controllers\Api\Auth\UserController as AuthUserController;
 use App\Http\Controllers\Api\CustomerAuth\ForgotPasswordController as CustomerForgotPasswordController;
 use App\Http\Controllers\Api\CustomerAuth\LoginController as CustomerLoginController;
-use App\Http\Controllers\Api\CustomerAuth\TwoFactorChallengeController as CustomerTwoFactorChallengeController;
-use App\Http\Controllers\Api\CustomerAuth\TwoFactorSettingsController as CustomerTwoFactorSettingsController;
 use App\Http\Controllers\Api\CustomerAuth\RegisterController as CustomerRegisterController;
 use App\Http\Controllers\Api\CustomerAuth\ResetPasswordController as CustomerResetPasswordController;
+use App\Http\Controllers\Api\CustomerAuth\TwoFactorChallengeController as CustomerTwoFactorChallengeController;
+use App\Http\Controllers\Api\CustomerAuth\TwoFactorSettingsController as CustomerTwoFactorSettingsController;
 use App\Http\Controllers\Api\CustomerProfileController;
 use App\Http\Controllers\Api\Dashboard\MerchantDashboardController;
 use App\Http\Controllers\Api\LandingPageController;
@@ -40,6 +40,9 @@ use App\Http\Controllers\Api\LayoutSettingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProjectSettingController;
 use App\Http\Controllers\Api\PublicLandingPageController;
+use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
+use App\Http\Controllers\Api\Settings\NotificationSettingController;
+use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\ThemePreferenceController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
@@ -141,6 +144,26 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard
     Route::prefix('dashboard')->group(function () {
         Route::get('/merchants', [MerchantDashboardController::class, 'index']);
+    });
+
+    // Settings
+    Route::prefix('settings')->group(function () {
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotificationSettingController::class, 'index']);
+            Route::get('/{id}', [NotificationSettingController::class, 'show'])->whereNumber('id');
+            Route::put('/{id}', [NotificationSettingController::class, 'update'])->whereNumber('id');
+            Route::post('/{id}/toggle', [NotificationSettingController::class, 'toggle'])->whereNumber('id');
+        });
+
+        Route::prefix('customer-app')->group(function () {
+            Route::get('/', [CustomerAppSettingController::class, 'index']);
+            Route::post('/{id}/toggle', [CustomerAppSettingController::class, 'toggle'])->whereNumber('id');
+        });
+
+        Route::prefix('wu')->group(function () {
+            Route::get('/', [WuSettingController::class, 'index']);
+            Route::post('/{id}/toggle', [WuSettingController::class, 'toggle'])->whereNumber('id');
+        });
     });
 
     // Access Management — Menus
