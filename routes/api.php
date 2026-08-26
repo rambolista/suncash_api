@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\MerchantType\BusinessMerchantActionsController;
 use App\Http\Controllers\Api\MerchantType\CharityManagementController;
 use App\Http\Controllers\Api\MerchantType\MerchantOwnerController;
 use App\Http\Controllers\Api\MerchantType\MerchantTypeLookupController;
+use App\Http\Controllers\Api\MerchantType\SubAccountController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProjectSettingController;
 use App\Http\Controllers\Api\Promotions\CashPromoSettingController;
@@ -272,6 +273,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}/gc-fee', [BusinessMerchantActionsController::class, 'updateGcFee'])->whereNumber('id');
         Route::get('/{id}/voucher-settings', [BusinessMerchantActionsController::class, 'getVoucherSettings'])->whereNumber('id');
         Route::put('/{id}/voucher-settings', [BusinessMerchantActionsController::class, 'updateVoucherSettings'])->whereNumber('id');
+
+        Route::get('/sub-accounts/template', [SubAccountController::class, 'template']);
+        Route::post('/{id}/sub-accounts/import', [SubAccountController::class, 'import'])->whereNumber('id');
         Route::get('/{id}/linked-cards', [BusinessMerchantActionsController::class, 'listLinkedCards'])->whereNumber('id');
         Route::post('/{id}/linked-cards/{cardId}/approve', [BusinessMerchantActionsController::class, 'approveCard'])->whereNumber('id')->whereNumber('cardId');
         Route::post('/{id}/linked-cards/{cardId}/reject', [BusinessMerchantActionsController::class, 'rejectCard'])->whereNumber('id')->whereNumber('cardId');

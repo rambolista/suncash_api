@@ -2,6 +2,7 @@
 
 namespace App\Models\Mysuncash;
 
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -10,6 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * customer-facing app. Unrelated to `App\Models\Customer`, which is the
  * new system's own separately-run customer portal.
  */
+#[Fillable([
+    'first_name', 'last_name', 'gender', 'birthday', 'address1',
+    'is_sub_account', 'is_new', 'status', 'country', 'ezkard_account_id', 'merchant_id',
+])]
 class Customer extends Model
 {
     protected $connection = 'mysuncash';
