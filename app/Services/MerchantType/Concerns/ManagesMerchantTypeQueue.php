@@ -144,4 +144,30 @@ trait ManagesMerchantTypeQueue
 
         return $merchant->fresh();
     }
+
+    /**
+     * Legacy's activate_registered_merchant() always ends with the merchant
+     * active (client_status_id = 0) regardless of its current status — it's
+     * a one-way "make active" action, not a toggle. Mirrors that here.
+     *
+     * @throws ValidationException
+     */
+    public function activate(int $merchantId, string $actorId): Merchant
+    {
+        $merchant = Merchant::where('merchant_type_id', $this->merchantTypeId())
+            ->where('registration_status', 'A')
+            ->find($merchantId);
+
+        if (! $merchant) {
+            throw ValidationException::withMessages(['id' => ['Approved registration not found.']]);
+        }
+
+        $merchant->update([
+            'client_status_id' => 0,
+            'user_id_modify' => $actorId,
+            'modification_date' => now(),
+        ]);
+
+        return $merchant->fresh();
+    }
 }

@@ -261,6 +261,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [BusinessManagementController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/approve', [BusinessManagementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [BusinessManagementController::class, 'reject'])->whereNumber('id');
+        Route::post('/{id}/activate', [BusinessManagementController::class, 'activate'])->whereNumber('id');
         Route::post('/{id}/owners', [MerchantOwnerController::class, 'store'])->whereNumber('id');
         Route::put('/{id}/owners/{ownerId}', [MerchantOwnerController::class, 'update'])->whereNumber('id')->whereNumber('ownerId');
     });
@@ -272,6 +273,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [CharityManagementController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/approve', [CharityManagementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [CharityManagementController::class, 'reject'])->whereNumber('id');
+        Route::post('/{id}/activate', [CharityManagementController::class, 'activate'])->whereNumber('id');
     });
 
     // Access Management — Menus

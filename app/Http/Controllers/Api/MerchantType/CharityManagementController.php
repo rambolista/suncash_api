@@ -108,6 +108,21 @@ class CharityManagementController extends Controller
         return response()->json(['message' => 'Charity rejected successfully.', 'merchant' => $merchant]);
     }
 
+    public function activate(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_edit')) {
+            return $response;
+        }
+
+        try {
+            $merchant = $this->charity->activate($id, $this->actorName($request));
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json(['message' => 'Charity activated successfully.', 'merchant' => $merchant]);
+    }
+
     public function export(Request $request): JsonResponse|StreamedResponse|Response
     {
         if ($response = $this->forbidden($request, 'can_view')) {
