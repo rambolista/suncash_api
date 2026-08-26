@@ -6,13 +6,17 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** One store-float account request/config for a merchant (history preserved, not overwritten). */
+/**
+ * Approval-workflow log row for a float replenishment request — either a
+ * store float replenishment/setup (`is_main_reserve = 0`) or a main reserve
+ * account replenishment (`is_main_reserve = 1`).
+ */
 #[Fillable([
-    'terminal_id', 'merchant_id', 'minimum_account', 'maximum_account', 'amount', 'status', 'email_address',
-    'create_date', 'create_by', 'approve_date', 'approve_by', 'rejected_date', 'rejected_by',
-    'confirm_by', 'confirm_date', 'update_by', 'update_date',
+    'transaction_id', 'merchant_id', 'terminal_id', 'amount', 'status', 'create_date', 'create_by',
+    'approve_date', 'approve_by', 'rejected_date', 'rejected_by', 'confirm_by', 'confirm_date',
+    'is_main_reserve', 'is_webpos_request',
 ])]
-class CashierStoreFloatAccount extends Model
+class CashierAccountReplenishment extends Model
 {
     public const PENDING = 'PENDING';
 
@@ -24,7 +28,7 @@ class CashierStoreFloatAccount extends Model
 
     protected $connection = 'mysuncash';
 
-    protected $table = 'cashier_store_float_accounts';
+    protected $table = 'cashier_account_replenishment';
 
     public $timestamps = false;
 

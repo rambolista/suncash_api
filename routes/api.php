@@ -33,6 +33,10 @@ use App\Http\Controllers\Api\CustomerAuth\TwoFactorChallengeController as Custom
 use App\Http\Controllers\Api\CustomerAuth\TwoFactorSettingsController as CustomerTwoFactorSettingsController;
 use App\Http\Controllers\Api\CustomerProfileController;
 use App\Http\Controllers\Api\Dashboard\MerchantDashboardController;
+use App\Http\Controllers\Api\FloatManagement\CurrentStoreFloatController;
+use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
+use App\Http\Controllers\Api\FloatManagement\SetMainReserveAccountController;
+use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
@@ -201,6 +205,38 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/', [GeoPromoController::class, 'store']);
             Route::put('/{id}', [GeoPromoController::class, 'update'])->whereNumber('id');
             Route::delete('/{id}', [GeoPromoController::class, 'destroy'])->whereNumber('id');
+        });
+    });
+
+    // Float Management
+    Route::prefix('float-management')->group(function () {
+        Route::prefix('main-reserve-account')->group(function () {
+            Route::get('/', [MainReserveAccountController::class, 'index']);
+            Route::post('/{id}/approve', [MainReserveAccountController::class, 'approve'])->whereNumber('id');
+            Route::post('/{id}/reject', [MainReserveAccountController::class, 'reject'])->whereNumber('id');
+            Route::post('/{id}/confirm', [MainReserveAccountController::class, 'confirm'])->whereNumber('id');
+            Route::post('/topup', [MainReserveAccountController::class, 'topup']);
+            Route::post('/request-replenishment', [MainReserveAccountController::class, 'requestReplenishment']);
+        });
+
+        Route::prefix('set-main-reserve-account')->group(function () {
+            Route::get('/', [SetMainReserveAccountController::class, 'show']);
+            Route::post('/', [SetMainReserveAccountController::class, 'setup']);
+            Route::put('/', [SetMainReserveAccountController::class, 'update']);
+        });
+
+        Route::prefix('store-float-replenishments')->group(function () {
+            Route::get('/', [StoreFloatReplenishmentController::class, 'index']);
+            Route::post('/{id}/approve', [StoreFloatReplenishmentController::class, 'approve'])->whereNumber('id');
+            Route::post('/{id}/reject', [StoreFloatReplenishmentController::class, 'reject'])->whereNumber('id');
+            Route::post('/{id}/confirm', [StoreFloatReplenishmentController::class, 'confirm'])->whereNumber('id');
+        });
+
+        Route::prefix('current-store-float-amounts')->group(function () {
+            Route::get('/', [CurrentStoreFloatController::class, 'index']);
+            Route::post('/create-account', [CurrentStoreFloatController::class, 'createAccount']);
+            Route::post('/{id}/topup', [CurrentStoreFloatController::class, 'topup'])->whereNumber('id');
+            Route::post('/{id}/request-replenishment', [CurrentStoreFloatController::class, 'requestReplenishment'])->whereNumber('id');
         });
     });
 
