@@ -2,20 +2,41 @@
 
 namespace App\Services\Promotions;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Read-only report over `promo_entries` — one row per earned raffle ticket.
  * Mirrors legacy admin's wu_promo/reports screen. The table holds tens of
- * thousands of rows app-wide, so this is paginated server-side rather than
- * loaded wholesale into a client-side table.
+ * thousands of rows app-wide, so the list view is paginated server-side
+ * rather than loaded wholesale into a client-side table; exports are capped
+ * generously instead of streamed row-by-row, since a single date-filtered
+ * export realistically stays well under those caps.
  */
 class PromoTicketReportService
 {
     private const PER_PAGE = 25;
 
-    public function list(string $dateFrom, string $dateTo, ?string $promoType, ?string $status, int $page): LengthAwarePaginator
+    private const CSV_LIMIT = 20000;
+
+    private const PDF_LIMIT = 1000;
+
+    public const COLUMNS = [
+        ['key' => 'id', 'label' => 'ID'],
+        ['key' => 'create_date', 'label' => 'Created'],
+        ['key' => 'customer_name', 'label' => 'Customer'],
+        ['key' => 'mobile_number', 'label' => 'Mobile'],
+        ['key' => 'island', 'label' => 'Island'],
+        ['key' => 'ticket', 'label' => 'Ticket'],
+        ['key' => 'status', 'label' => 'Status'],
+        ['key' => 'type', 'label' => 'Type'],
+        ['key' => 'prize', 'label' => 'Prize'],
+        ['key' => 'redeemed_date', 'label' => 'Redeemed'],
+    ];
+
+    private function baseQuery(string $dateFrom, string $dateTo, ?string $promoType, ?string $status): Builder
     {
         $query = DB::connection('mysuncash')
             ->table('promo_entries as pe')
@@ -50,6 +71,30 @@ class PromoTicketReportService
             $query->where('pe.status', $status);
         }
 
-        return $query->paginate(self::PER_PAGE, ['*'], 'page', $page);
+        return $query;
+    }
+
+    public function list(string $dateFrom, string $dateTo, ?string $promoType, ?string $status, int $page): LengthAwarePaginator
+    {
+        return $this->baseQuery($dateFrom, $dateTo, $promoType, $status)
+            ->paginate(self::PER_PAGE, ['*'], 'page', $page);
+    }
+
+    public function listForCsv(string $dateFrom, string $dateTo, ?string $promoType, ?string $status): Collection
+    {
+        return $this->baseQuery($dateFrom, $dateTo, $promoType, $status)->limit(self::CSV_LIMIT)->get();
+    }
+
+    public function listForPdf(string $dateFrom, string $dateTo, ?string $promoType, ?string $status): array
+    {
+        $query = $this->baseQuery($dateFrom, $dateTo, $promoType, $status);
+        $totalCount = $query->count();
+        $rows = $query->limit(self::PDF_LIMIT)->get();
+
+        return [
+            'rows' => $rows,
+            'total_count' => $totalCount,
+            'truncated' => $totalCount > self::PDF_LIMIT,
+        ];
     }
 }

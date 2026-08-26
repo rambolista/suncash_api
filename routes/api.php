@@ -179,6 +179,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/branches', [PromoLookupController::class, 'branches']);
 
         Route::get('/ticket-reports', [PromoTicketReportController::class, 'index']);
+        Route::get('/ticket-reports/export', [PromoTicketReportController::class, 'export']);
 
         Route::prefix('cash-promos')->group(function () {
             Route::get('/', [CashPromoSettingController::class, 'index']);
