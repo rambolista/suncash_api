@@ -39,6 +39,11 @@ use App\Http\Controllers\Api\LandingPageSectionItemController;
 use App\Http\Controllers\Api\LayoutSettingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProjectSettingController;
+use App\Http\Controllers\Api\Promotions\CashPromoSettingController;
+use App\Http\Controllers\Api\Promotions\GeoPromoController;
+use App\Http\Controllers\Api\Promotions\PromoItemController;
+use App\Http\Controllers\Api\Promotions\PromoLookupController;
+use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
 use App\Http\Controllers\Api\PublicLandingPageController;
 use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
@@ -163,6 +168,38 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('wu')->group(function () {
             Route::get('/', [WuSettingController::class, 'index']);
             Route::post('/{id}/toggle', [WuSettingController::class, 'toggle'])->whereNumber('id');
+        });
+    });
+
+    // Promotions
+    Route::prefix('promotions')->group(function () {
+        Route::get('/islands', [PromoLookupController::class, 'islands']);
+        Route::get('/countries', [PromoLookupController::class, 'countries']);
+        Route::get('/merchants', [PromoLookupController::class, 'merchants']);
+        Route::get('/branches', [PromoLookupController::class, 'branches']);
+
+        Route::get('/ticket-reports', [PromoTicketReportController::class, 'index']);
+
+        Route::prefix('cash-promos')->group(function () {
+            Route::get('/', [CashPromoSettingController::class, 'index']);
+            Route::post('/', [CashPromoSettingController::class, 'store']);
+            Route::put('/{id}', [CashPromoSettingController::class, 'update'])->whereNumber('id');
+            Route::delete('/{id}', [CashPromoSettingController::class, 'destroy'])->whereNumber('id');
+        });
+
+        Route::prefix('promo-items')->group(function () {
+            Route::get('/', [PromoItemController::class, 'index']);
+            Route::post('/', [PromoItemController::class, 'store']);
+            Route::post('/{id}', [PromoItemController::class, 'update'])->whereNumber('id');
+            Route::delete('/{id}', [PromoItemController::class, 'destroy'])->whereNumber('id');
+        });
+
+        Route::prefix('geo-promo')->group(function () {
+            Route::get('/', [GeoPromoController::class, 'index']);
+            Route::get('/{id}', [GeoPromoController::class, 'show'])->whereNumber('id');
+            Route::post('/', [GeoPromoController::class, 'store']);
+            Route::put('/{id}', [GeoPromoController::class, 'update'])->whereNumber('id');
+            Route::delete('/{id}', [GeoPromoController::class, 'destroy'])->whereNumber('id');
         });
     });
 
