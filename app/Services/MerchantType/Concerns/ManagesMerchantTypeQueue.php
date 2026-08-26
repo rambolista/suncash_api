@@ -17,40 +17,77 @@ use Illuminate\Validation\ValidationException;
  */
 trait ManagesMerchantTypeQueue
 {
+    public const COLUMNS = [
+        ['key' => 'creation_date', 'label' => 'Created'],
+        ['key' => 'client_id', 'label' => 'Client ID'],
+        ['key' => 'dba_name', 'label' => 'Name'],
+        ['key' => 'legal_name', 'label' => 'Legal Name'],
+        ['key' => 'phone_no', 'label' => 'Phone'],
+        ['key' => 'reseller_name', 'label' => 'Reseller'],
+        ['key' => 'suntag_shortcode', 'label' => 'Short Code'],
+        ['key' => 'island', 'label' => 'Island'],
+        ['key' => 'registration_status', 'label' => 'Status'],
+    ];
+
+    private const STATUS_LABELS = ['P' => 'Pending', 'A' => 'Approved', 'V' => 'Rejected'];
+
     abstract protected function merchantTypeId(): int;
+
+    private function baseQuery()
+    {
+        return Merchant::with('billpayApplication')
+            ->where('merchant_type_id', $this->merchantTypeId())
+            ->whereIn('client_status_id', [-1, 0]);
+    }
+
+    private function mapRow(Merchant $merchant): array
+    {
+        $island = $merchant->billpayApplication?->island;
+
+        return [
+            'id' => $merchant->id,
+            'client_id' => $merchant->client_id,
+            'user_name' => $merchant->user_name,
+            'dba_name' => $merchant->dba_name,
+            'legal_name' => $merchant->legal_name,
+            'tax_id' => $merchant->tax_id,
+            'phone_no' => $merchant->phone_no,
+            'reseller_name' => $merchant->reseller_name,
+            'suntag_shortcode' => $merchant->suntag_shortcode,
+            'island' => is_numeric($island) ? (Island::find((int) $island)?->name ?? $island) : $island,
+            'client_status_id' => (int) $merchant->client_status_id,
+            'registration_status' => $merchant->registration_status,
+            'creation_date' => $merchant->creation_date,
+            'modification_date' => $merchant->modification_date,
+        ];
+    }
 
     public function list(): array
     {
-        $base = fn () => Merchant::with('billpayApplication')
-            ->where('merchant_type_id', $this->merchantTypeId())
-            ->whereIn('client_status_id', [-1, 0]);
-
-        $mapRow = function (Merchant $merchant) {
-            $island = $merchant->billpayApplication?->island;
-
-            return [
-                'id' => $merchant->id,
-                'client_id' => $merchant->client_id,
-                'user_name' => $merchant->user_name,
-                'dba_name' => $merchant->dba_name,
-                'legal_name' => $merchant->legal_name,
-                'tax_id' => $merchant->tax_id,
-                'phone_no' => $merchant->phone_no,
-                'reseller_name' => $merchant->reseller_name,
-                'suntag_shortcode' => $merchant->suntag_shortcode,
-                'island' => is_numeric($island) ? (Island::find((int) $island)?->name ?? $island) : $island,
-                'client_status_id' => (int) $merchant->client_status_id,
-                'registration_status' => $merchant->registration_status,
-                'creation_date' => $merchant->creation_date,
-                'modification_date' => $merchant->modification_date,
-            ];
-        };
-
         return [
-            'pending' => $base()->where('registration_status', 'P')->orderByDesc('id')->get()->map($mapRow)->all(),
-            'approved' => $base()->where('registration_status', 'A')->orderByDesc('id')->get()->map($mapRow)->all(),
-            'rejected' => $base()->where('registration_status', 'V')->orderByDesc('id')->get()->map($mapRow)->all(),
+            'pending' => $this->baseQuery()->where('registration_status', 'P')->orderByDesc('id')->get()->map(fn ($m) => $this->mapRow($m))->all(),
+            'approved' => $this->baseQuery()->where('registration_status', 'A')->orderByDesc('id')->get()->map(fn ($m) => $this->mapRow($m))->all(),
+            'rejected' => $this->baseQuery()->where('registration_status', 'V')->orderByDesc('id')->get()->map(fn ($m) => $this->mapRow($m))->all(),
         ];
+    }
+
+    /**
+     * Rows for PDF/Excel export, optionally scoped to one tab's status (P/A/V).
+     * Statuses are mapped to their tab labels for display in the export.
+     */
+    public function exportRows(?string $status = null): array
+    {
+        $query = $this->baseQuery();
+        if ($status) {
+            $query->where('registration_status', $status);
+        }
+
+        return $query->orderByDesc('id')->get()->map(function (Merchant $merchant) {
+            $row = $this->mapRow($merchant);
+            $row['registration_status'] = self::STATUS_LABELS[$row['registration_status']] ?? $row['registration_status'];
+
+            return $row;
+        })->all();
     }
 
     private function findPendingOrFail(int $merchantId): Merchant

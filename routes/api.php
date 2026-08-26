@@ -256,6 +256,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('business-management')->group(function () {
         Route::get('/', [BusinessManagementController::class, 'index']);
+        Route::get('/export', [BusinessManagementController::class, 'export']);
         Route::get('/{id}', [BusinessManagementController::class, 'show'])->whereNumber('id');
         Route::put('/{id}', [BusinessManagementController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/approve', [BusinessManagementController::class, 'approve'])->whereNumber('id');
@@ -266,6 +267,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('charity-management')->group(function () {
         Route::get('/', [CharityManagementController::class, 'index']);
+        Route::get('/export', [CharityManagementController::class, 'export']);
         Route::get('/{id}', [CharityManagementController::class, 'show'])->whereNumber('id');
         Route::put('/{id}', [CharityManagementController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/approve', [CharityManagementController::class, 'approve'])->whereNumber('id');
