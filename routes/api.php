@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
 use App\Http\Controllers\Api\LayoutSettingController;
 use App\Http\Controllers\Api\MerchantType\BusinessManagementController;
+use App\Http\Controllers\Api\MerchantType\BusinessMerchantActionsController;
 use App\Http\Controllers\Api\MerchantType\CharityManagementController;
 use App\Http\Controllers\Api\MerchantType\MerchantOwnerController;
 use App\Http\Controllers\Api\MerchantType\MerchantTypeLookupController;
@@ -264,6 +265,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/activate', [BusinessManagementController::class, 'activate'])->whereNumber('id');
         Route::post('/{id}/owners', [MerchantOwnerController::class, 'store'])->whereNumber('id');
         Route::put('/{id}/owners/{ownerId}', [MerchantOwnerController::class, 'update'])->whereNumber('id')->whereNumber('ownerId');
+
+        Route::put('/{id}/card-hold-settings', [BusinessMerchantActionsController::class, 'updateCardHoldSettings'])->whereNumber('id');
+        Route::put('/{id}/transaction-fee', [BusinessMerchantActionsController::class, 'updateTransactionFee'])->whereNumber('id');
+        Route::put('/{id}/authorized-auth', [BusinessMerchantActionsController::class, 'updateAuthorizedAuth'])->whereNumber('id');
+        Route::put('/{id}/gc-fee', [BusinessMerchantActionsController::class, 'updateGcFee'])->whereNumber('id');
+        Route::get('/{id}/voucher-settings', [BusinessMerchantActionsController::class, 'getVoucherSettings'])->whereNumber('id');
+        Route::put('/{id}/voucher-settings', [BusinessMerchantActionsController::class, 'updateVoucherSettings'])->whereNumber('id');
+        Route::get('/{id}/linked-cards', [BusinessMerchantActionsController::class, 'listLinkedCards'])->whereNumber('id');
+        Route::post('/{id}/linked-cards/{cardId}/approve', [BusinessMerchantActionsController::class, 'approveCard'])->whereNumber('id')->whereNumber('cardId');
+        Route::post('/{id}/linked-cards/{cardId}/reject', [BusinessMerchantActionsController::class, 'rejectCard'])->whereNumber('id')->whereNumber('cardId');
     });
 
     Route::prefix('charity-management')->group(function () {

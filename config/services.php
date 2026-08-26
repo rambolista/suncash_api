@@ -35,4 +35,18 @@ return [
         ],
     ],
 
+    /*
+    | CenPOS payment gateway — used by Business Management's "credit/debit
+    | card" review screen to void a customer's stored card token on reject.
+    | Mirrors legacy's CENPOST_MERCHANT_ID/CENPOS_VERIFYINGPOST/
+    | CENPOS_DELETETOKEN_URL constants (defined outside the legacy repo).
+    */
+    'cenpos' => [
+        'merchant_id' => env('CENPOS_MERCHANT_ID'),
+        'merchant_secretkey' => env('CENPOS_MERCHANT_SECRETKEY'),
+        'verifyingpost_url' => env('CENPOS_VERIFYINGPOST_URL'),
+        'deletetoken_url' => env('CENPOS_DELETETOKEN_URL'),
+        'verify_ssl' => env('CENPOS_VERIFY_SSL', true),
+    ],
+
 ];

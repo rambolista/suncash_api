@@ -59,6 +59,12 @@ trait ManagesMerchantTypeQueue
             'registration_status' => $merchant->registration_status,
             'creation_date' => $merchant->creation_date,
             'modification_date' => $merchant->modification_date,
+            // Business Management's Approved-tab settings buttons pre-fill from these.
+            'card_hold_days' => $merchant->card_hold_days,
+            'suncash_transaction_fee' => $merchant->suncash_transaction_fee,
+            'reauth_amount_limit' => $merchant->reauth_amount_limit,
+            'reauth_card_hold_days' => $merchant->reauth_card_hold_days,
+            'gc_fee' => $merchant->gc_fee,
         ];
     }
 

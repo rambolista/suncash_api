@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'commi_type_id', 'commi_fixed', 'commi_percentage', 'wu_commi_percentage',
     'reserve_account', 'cash_float_account',
     'trade_name', 'risk_rating', 'business_size', 'require_second_auth',
+    'card_hold_days', 'suncash_transaction_fee', 'reauth_amount_limit', 'reauth_card_hold_days', 'gc_fee',
 ])]
 class Merchant extends Model
 {
