@@ -26,7 +26,8 @@ class CashPromoSettingService
     public function list(): array
     {
         return CashPromoSetting::where('promo_type', $this->activePromoType())
-            ->where('status', '!=', CashPromoSetting::STATUS_DELETED)
+            ->where('status', CashPromoSetting::STATUS_ACTIVE)
+            ->where('is_process', -1)
             ->orderByDesc('id')
             ->get()
             ->all();
@@ -41,8 +42,14 @@ class CashPromoSettingService
             $errors['price'] = ['Enter a valid prize amount.'];
         }
 
+        $drawType = $data['draw_type'] ?? null;
+        if (! in_array($drawType, ['weekly_draw', 'instant_prize'], true)) {
+            $errors['draw_type'] = ['Select a valid draw type.'];
+        }
+
+        // Legacy only requires quantity for weekly draws — instant prizes may be an open/unlimited pool.
         $quantity = $data['quantity'] ?? null;
-        if (! is_numeric($quantity) || (int) $quantity < 1) {
+        if ($drawType !== 'instant_prize' && (! is_numeric($quantity) || (int) $quantity < 1)) {
             $errors['quantity'] = ['Enter a valid quantity.'];
         }
 
@@ -50,13 +57,14 @@ class CashPromoSettingService
             $errors['description'] = ['Description is required.'];
         }
 
-        if (! in_array($data['draw_type'] ?? null, ['weekly_draw', 'instant_prize'], true)) {
-            $errors['draw_type'] = ['Select a valid draw type.'];
-        }
-
         $targetGroupType = $data['target_group_type'] ?? 'all';
         if (! in_array($targetGroupType, self::TARGET_TYPES, true)) {
             $errors['target_group_type'] = ['Select a valid target group.'];
+        }
+
+        // Legacy hides Multiple/Percentage targeting until a quantity > 1 is entered, since a split needs something to split.
+        if (in_array($targetGroupType, ['multiple', 'percentage'], true) && (! is_numeric($quantity) || (int) $quantity <= 1)) {
+            $errors['target_group'] = ['Enter a quantity greater than 1 before splitting across islands.'];
         }
 
         if ($targetGroupType === 'percentage') {
@@ -80,18 +88,39 @@ class CashPromoSettingService
         return $data;
     }
 
+    /**
+     * Legacy stores percentage-split allocations as per-island QUANTITY pairs
+     * (not the literal percentage), plus a trailing `0-<remainder>` sentinel —
+     * see wu_promo_items_management.php's btnAddCashPromo/btnUpdateCashPromo
+     * handlers. Downstream prize-draw logic in the legacy stack expects this
+     * exact format, so we must encode/decode the same way rather than storing
+     * the raw percentage.
+     */
     private function encodeTargetGroup(array $data): string
     {
         $type = $data['target_group_type'] ?? 'all';
 
-        return match ($type) {
-            'island', 'multiple' => implode(',', array_map('strval', $data['target_group_islands'] ?? [])),
-            'percentage' => implode(',', array_map(
-                fn ($row) => $row['island_id'].'-'.$row['percentage'],
-                $data['target_group_allocations'] ?? []
-            )),
-            default => '',
-        };
+        if (! in_array($type, ['island', 'multiple', 'percentage'], true)) {
+            return '';
+        }
+
+        if ($type !== 'percentage') {
+            return implode(',', array_map('strval', $data['target_group_islands'] ?? []));
+        }
+
+        $quantity = (int) ($data['quantity'] ?? 0);
+        $allocations = $data['target_group_allocations'] ?? [];
+
+        $pairs = [];
+        $allocatedQuantity = 0;
+        foreach ($allocations as $row) {
+            $islandQuantity = (int) round(((float) ($row['percentage'] ?? 0)) / 100 * $quantity);
+            $allocatedQuantity += $islandQuantity;
+            $pairs[] = $row['island_id'].'-'.$islandQuantity;
+        }
+        $pairs[] = '0-'.($quantity - $allocatedQuantity);
+
+        return implode(',', $pairs);
     }
 
     /**
@@ -101,15 +130,18 @@ class CashPromoSettingService
     {
         $this->validate($data);
 
+        $quantity = (int) ($data['quantity'] ?? 0);
+
         return CashPromoSetting::create([
             'price' => (float) $data['price'],
-            'quantity' => (int) $data['quantity'],
-            'remaining_quantity' => (int) $data['quantity'],
+            'quantity' => $quantity,
+            'remaining_quantity' => $quantity,
             'description' => $data['description'],
             'promo_type' => $this->activePromoType(),
             'created_date' => now(),
             'is_instant_reusable' => ! empty($data['is_instant_reusable']) ? 1 : 0,
             'status' => CashPromoSetting::STATUS_ACTIVE,
+            'is_process' => -1,
             'target_group_type' => $data['target_group_type'] ?? 'all',
             'target_group' => $this->encodeTargetGroup($data),
             'draw_type' => $data['draw_type'],
@@ -130,9 +162,13 @@ class CashPromoSettingService
 
         $this->validate($data);
 
+        $quantity = (int) ($data['quantity'] ?? 0);
+
         $setting->update([
             'price' => (float) $data['price'],
-            'quantity' => (int) $data['quantity'],
+            'quantity' => $quantity,
+            // Legacy always resyncs remaining_quantity to the (possibly edited) quantity on update.
+            'remaining_quantity' => $quantity,
             'description' => $data['description'],
             'updated_date' => now(),
             'is_instant_reusable' => ! empty($data['is_instant_reusable']) ? 1 : 0,

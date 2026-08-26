@@ -28,8 +28,13 @@ class PromoLookupController extends Controller
 
     public function merchants(Request $request): JsonResponse
     {
+        // Legacy restricts the promo-item merchant picker to promo-eligible merchants only
+        // (tools_model.php get_item_merchant_list): client_id like 'SC0%' or id in (37, 38).
         return response()->json(
-            Merchant::orderBy('merchant_name')
+            Merchant::where(function ($query) {
+                $query->where('client_id', 'like', 'SC0%')->orWhereIn('id', [37, 38]);
+            })
+                ->orderBy('merchant_name')
                 ->get(['id', 'merchant_name', 'legal_name'])
                 ->map(fn (Merchant $merchant) => [
                     'id' => $merchant->id,
