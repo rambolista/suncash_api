@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'is_auto_replenish', 'auto_replenish_amount', 'min_auto_replenish_amount', 'replenishment_remarks',
     'commi_type_id', 'commi_fixed', 'commi_percentage', 'wu_commi_percentage',
     'reserve_account', 'cash_float_account',
+    'trade_name', 'risk_rating', 'business_size', 'require_second_auth',
 ])]
 class Merchant extends Model
 {
@@ -32,6 +33,11 @@ class Merchant extends Model
         5 => 'Business',
         6 => 'Charity',
     ];
+
+    /** `clients.merchant_type_id` — set alongside `reseller_type` 5/6 at registration; drives the Business/Charity Management queues. */
+    public const MERCHANT_TYPE_BUSINESS = 1;
+
+    public const MERCHANT_TYPE_CHARITY = 3;
 
     public const MAIN_TRANSACTION_TYPES = [
         1 => 'POS Card Registration',
@@ -70,6 +76,18 @@ class Merchant extends Model
     public function merchantDetail(): HasOne
     {
         return $this->hasOne(MerchantDetail::class, 'client_record_id');
+    }
+
+    /** The Business/Charity "Initial Info" application record (Business Management / Charity Management). */
+    public function billpayApplication(): HasOne
+    {
+        return $this->hasOne(ClientBillpayApplication::class, 'client_id');
+    }
+
+    /** Owners/directors declared on a Business's Initial Info screen. Business Management only. */
+    public function owners(): HasMany
+    {
+        return $this->hasMany(MerchantOwner::class, 'client_record_id');
     }
 
     public function feeCommissions(): HasMany

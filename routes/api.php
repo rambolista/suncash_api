@@ -41,6 +41,10 @@ use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
 use App\Http\Controllers\Api\LayoutSettingController;
+use App\Http\Controllers\Api\MerchantType\BusinessManagementController;
+use App\Http\Controllers\Api\MerchantType\CharityManagementController;
+use App\Http\Controllers\Api\MerchantType\MerchantOwnerController;
+use App\Http\Controllers\Api\MerchantType\MerchantTypeLookupController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProjectSettingController;
 use App\Http\Controllers\Api\Promotions\CashPromoSettingController;
@@ -238,6 +242,34 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/{id}/topup', [CurrentStoreFloatController::class, 'topup'])->whereNumber('id');
             Route::post('/{id}/request-replenishment', [CurrentStoreFloatController::class, 'requestReplenishment'])->whereNumber('id');
         });
+    });
+
+    // Merchants — Business Management / Charity Management
+    Route::prefix('merchant-type-lookups')->group(function () {
+        Route::get('/sole-proprietorships', [MerchantTypeLookupController::class, 'soleProprietorships']);
+        Route::get('/business-categories', [MerchantTypeLookupController::class, 'businessCategories']);
+        Route::get('/id-types', [MerchantTypeLookupController::class, 'idTypes']);
+        Route::get('/position-levels', [MerchantTypeLookupController::class, 'positionLevels']);
+        Route::get('/islands', [MerchantTypeLookupController::class, 'islands']);
+        Route::get('/countries', [MerchantTypeLookupController::class, 'countries']);
+    });
+
+    Route::prefix('business-management')->group(function () {
+        Route::get('/', [BusinessManagementController::class, 'index']);
+        Route::get('/{id}', [BusinessManagementController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [BusinessManagementController::class, 'update'])->whereNumber('id');
+        Route::post('/{id}/approve', [BusinessManagementController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [BusinessManagementController::class, 'reject'])->whereNumber('id');
+        Route::post('/{id}/owners', [MerchantOwnerController::class, 'store'])->whereNumber('id');
+        Route::put('/{id}/owners/{ownerId}', [MerchantOwnerController::class, 'update'])->whereNumber('id')->whereNumber('ownerId');
+    });
+
+    Route::prefix('charity-management')->group(function () {
+        Route::get('/', [CharityManagementController::class, 'index']);
+        Route::get('/{id}', [CharityManagementController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [CharityManagementController::class, 'update'])->whereNumber('id');
+        Route::post('/{id}/approve', [CharityManagementController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [CharityManagementController::class, 'reject'])->whereNumber('id');
     });
 
     // Access Management — Menus
