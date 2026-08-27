@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
 use App\Http\Controllers\Api\LayoutSettingController;
+use App\Http\Controllers\Api\Merchant\MerchantSettlementController;
 use App\Http\Controllers\Api\MerchantType\BusinessManagementController;
 use App\Http\Controllers\Api\MerchantType\BusinessMerchantActionsController;
 use App\Http\Controllers\Api\MerchantType\CharityManagementController;
@@ -289,6 +290,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/approve', [CharityManagementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [CharityManagementController::class, 'reject'])->whereNumber('id');
         Route::post('/{id}/activate', [CharityManagementController::class, 'activate'])->whereNumber('id');
+    });
+
+    Route::prefix('merchant-settlements')->group(function () {
+        Route::get('/', [MerchantSettlementController::class, 'index']);
+        Route::get('/banks', [MerchantSettlementController::class, 'banks']);
+        Route::get('/linked-bank-accounts', [MerchantSettlementController::class, 'linkedBankAccounts']);
+        Route::post('/linked-bank-accounts', [MerchantSettlementController::class, 'linkBankAccount']);
+        Route::get('/merchants/{merchantId}/history', [MerchantSettlementController::class, 'history'])->whereNumber('merchantId');
+        Route::get('/{id}', [MerchantSettlementController::class, 'show'])->whereNumber('id');
+        Route::post('/{id}/approve', [MerchantSettlementController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [MerchantSettlementController::class, 'reject'])->whereNumber('id');
     });
 
     // Access Management — Menus
