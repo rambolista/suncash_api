@@ -210,6 +210,26 @@ class MerchantSettlementService
             ->all();
     }
 
+    /**
+     * The merchant's general ledger history (not settlement-specific) —
+     * legacy's "View Transactions" button, `view_merchant_transaction()`.
+     */
+    public function transactionHistory(int $merchantId): array
+    {
+        return ClientTransaction::with('transactionType')
+            ->where('client_record_id', $merchantId)
+            ->orderBy('timestamp')
+            ->limit(100000)
+            ->get()
+            ->map(fn (ClientTransaction $transaction) => [
+                'timestamp' => $transaction->timestamp,
+                'transaction_type' => $transaction->transactionType?->type,
+                'description' => $transaction->description,
+                'amount' => (float) $transaction->amount,
+            ])
+            ->all();
+    }
+
     public function listBanks(): array
     {
         return BusinessBillpayBank::where('status', 'A')

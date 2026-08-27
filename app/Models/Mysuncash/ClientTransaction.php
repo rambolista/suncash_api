@@ -23,4 +23,9 @@ class ClientTransaction extends Model
     {
         return $this->belongsTo(Merchant::class, 'client_record_id');
     }
+
+    public function transactionType(): BelongsTo
+    {
+        return $this->belongsTo(TransactionType::class, 'trans_type_id');
+    }
 }

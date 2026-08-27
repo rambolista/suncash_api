@@ -69,6 +69,15 @@ class MerchantSettlementController extends Controller
         return response()->json(['data' => $this->settlements->history($merchantId)]);
     }
 
+    public function transactions(Request $request, int $merchantId): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json(['data' => $this->settlements->transactionHistory($merchantId)]);
+    }
+
     public function banks(Request $request): JsonResponse
     {
         if ($response = $this->forbidden($request, 'can_view')) {

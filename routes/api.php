@@ -298,6 +298,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/linked-bank-accounts', [MerchantSettlementController::class, 'linkedBankAccounts']);
         Route::post('/linked-bank-accounts', [MerchantSettlementController::class, 'linkBankAccount']);
         Route::get('/merchants/{merchantId}/history', [MerchantSettlementController::class, 'history'])->whereNumber('merchantId');
+        Route::get('/merchants/{merchantId}/transactions', [MerchantSettlementController::class, 'transactions'])->whereNumber('merchantId');
         Route::get('/{id}', [MerchantSettlementController::class, 'show'])->whereNumber('id');
         Route::post('/{id}/approve', [MerchantSettlementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [MerchantSettlementController::class, 'reject'])->whereNumber('id');
