@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\FloatManagement\CurrentStoreFloatController;
 use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\SetMainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
+use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
@@ -329,6 +330,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [TerminalManagementController::class, 'store']);
         Route::put('/{id}', [TerminalManagementController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/status', [TerminalManagementController::class, 'changeStatus'])->whereNumber('id');
+    });
+
+    Route::prefix('giftcard-products')->group(function () {
+        Route::get('/', [GiftcardProductController::class, 'index']);
+        Route::get('/{id}/product-types', [GiftcardProductController::class, 'productTypes'])->whereNumber('id');
+        Route::post('/{id}/activate', [GiftcardProductController::class, 'activate'])->whereNumber('id');
+        Route::post('/{id}/deactivate', [GiftcardProductController::class, 'deactivate'])->whereNumber('id');
     });
 
     // Access Management — Menus
