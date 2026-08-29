@@ -46,6 +46,20 @@ class MerchantSettlementService
         'rejected' => ManualSettlement::STATUS_REJECTED,
     ];
 
+    private const STATUS_LABELS = ['P' => 'Pending', 'A' => 'Approved', 'R' => 'Rejected'];
+
+    public const COLUMNS = [
+        ['key' => 'created_date', 'label' => 'Created'],
+        ['key' => 'transaction_id', 'label' => 'Transaction ID'],
+        ['key' => 'suntag_shortcode', 'label' => 'Shortcode'],
+        ['key' => 'dba_name', 'label' => 'Merchant'],
+        ['key' => 'type', 'label' => 'Type'],
+        ['key' => 'w_type', 'label' => 'Withdrawal Type'],
+        ['key' => 'amount', 'label' => 'Amount'],
+        ['key' => 'fee', 'label' => 'Fee'],
+        ['key' => 'status_label', 'label' => 'Status'],
+    ];
+
     private function withdrawalTypeLabel(?string $withdrawalType): string
     {
         return $withdrawalType === 'WIF' ? 'Express (1 Day)' : 'Standard (2-3 Days)';
@@ -101,6 +115,24 @@ class MerchantSettlementService
         }
 
         return $result;
+    }
+
+    /**
+     * Rows for PDF/Excel export, optionally scoped to one tab's status (P/A/R).
+     */
+    public function exportRows(?string $status = null): array
+    {
+        $query = ManualSettlement::with('merchant');
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        return $query->orderByDesc('id')->get()->map(function (ManualSettlement $s) {
+            $row = $this->mapListRow($s);
+            $row['status_label'] = self::STATUS_LABELS[$row['status']] ?? $row['status'];
+
+            return $row;
+        })->all();
     }
 
     /**

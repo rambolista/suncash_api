@@ -41,7 +41,9 @@ use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
 use App\Http\Controllers\Api\LayoutSettingController;
+use App\Http\Controllers\Api\Merchant\BusinessBillpayController;
 use App\Http\Controllers\Api\Merchant\MerchantSettlementController;
+use App\Http\Controllers\Api\Merchant\MerchantStatementController;
 use App\Http\Controllers\Api\MerchantType\BusinessManagementController;
 use App\Http\Controllers\Api\MerchantType\BusinessMerchantActionsController;
 use App\Http\Controllers\Api\MerchantType\CharityManagementController;
@@ -59,6 +61,7 @@ use App\Http\Controllers\Api\PublicLandingPageController;
 use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
+use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\ThemePreferenceController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
@@ -294,6 +297,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('merchant-settlements')->group(function () {
         Route::get('/', [MerchantSettlementController::class, 'index']);
+        Route::get('/export', [MerchantSettlementController::class, 'export']);
         Route::get('/banks', [MerchantSettlementController::class, 'banks']);
         Route::get('/linked-bank-accounts', [MerchantSettlementController::class, 'linkedBankAccounts']);
         Route::post('/linked-bank-accounts', [MerchantSettlementController::class, 'linkBankAccount']);
@@ -302,6 +306,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [MerchantSettlementController::class, 'show'])->whereNumber('id');
         Route::post('/{id}/approve', [MerchantSettlementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [MerchantSettlementController::class, 'reject'])->whereNumber('id');
+    });
+
+    Route::prefix('business-billpay')->group(function () {
+        Route::get('/', [BusinessBillpayController::class, 'index']);
+        Route::get('/export', [BusinessBillpayController::class, 'export']);
+        Route::get('/{id}', [BusinessBillpayController::class, 'show'])->whereNumber('id');
+        Route::post('/{id}/approve', [BusinessBillpayController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [BusinessBillpayController::class, 'reject'])->whereNumber('id');
+    });
+
+    Route::prefix('merchant-statement')->group(function () {
+        Route::get('/', [MerchantStatementController::class, 'index']);
+        Route::get('/{id}', [MerchantStatementController::class, 'statement'])->whereNumber('id');
+        Route::get('/{id}/export', [MerchantStatementController::class, 'export'])->whereNumber('id');
+        Route::post('/{id}/adjustment', [MerchantStatementController::class, 'adjustment'])->whereNumber('id');
+    });
+
+    Route::prefix('terminals-management')->group(function () {
+        Route::get('/', [TerminalManagementController::class, 'index']);
+        Route::get('/merchants', [TerminalManagementController::class, 'merchants']);
+        Route::post('/', [TerminalManagementController::class, 'store']);
+        Route::put('/{id}', [TerminalManagementController::class, 'update'])->whereNumber('id');
+        Route::post('/{id}/status', [TerminalManagementController::class, 'changeStatus'])->whereNumber('id');
     });
 
     // Access Management — Menus
