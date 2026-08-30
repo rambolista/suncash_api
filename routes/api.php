@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\SetMainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
 use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
+use App\Http\Controllers\Api\Kyc\KycUpgradeController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
 use App\Http\Controllers\Api\LandingPageSectionItemController;
@@ -337,6 +338,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/product-types', [GiftcardProductController::class, 'productTypes'])->whereNumber('id');
         Route::post('/{id}/activate', [GiftcardProductController::class, 'activate'])->whereNumber('id');
         Route::post('/{id}/deactivate', [GiftcardProductController::class, 'deactivate'])->whereNumber('id');
+    });
+
+    Route::prefix('kyc-upgrade')->group(function () {
+        Route::get('/', [KycUpgradeController::class, 'index']);
+        Route::get('/export', [KycUpgradeController::class, 'export']);
+        Route::get('/{id}', [KycUpgradeController::class, 'show'])->whereNumber('id');
+        Route::post('/{id}/approve', [KycUpgradeController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [KycUpgradeController::class, 'reject'])->whereNumber('id');
     });
 
     // Access Management — Menus
