@@ -40,9 +40,7 @@ use Illuminate\Validation\ValidationException;
  */
 class MerchantRegistrationService
 {
-    public function __construct(private readonly MerchantValidator $validator)
-    {
-    }
+    public function __construct(private readonly MerchantValidator $validator) {}
 
     public function isClientIdAvailable(string $clientId): bool
     {
@@ -54,12 +52,26 @@ class MerchantRegistrationService
         return ! UserAccount::where('user_name', $username)->exists();
     }
 
+    /**
+     * Legacy's `clients_model::client_list()` query itself has no filter —
+     * it fetches every `clients` row, and this method mirrors that (it's
+     * also reused as a plain merchant picker elsewhere, e.g. Float
+     * Management's store-float-account creation, which needs every
+     * merchant, not just the ones a specific screen chooses to display).
+     *
+     * `client_management.php`'s default VIEW (lines 115-120, when no
+     * `cbostatus` search was submitted) then only RENDERS rows whose
+     * `client_status_id` is 0 (active) or 2 (admin-deactivated) —
+     * `$status_array = ["0","2"]`, checked per row before printing. That's
+     * a presentation-layer concern specific to the Merchant Management
+     * list screen, so it's applied in the frontend for that screen only
+     * (src/views/admin/merchants/registration/index.jsx), not here.
+     */
     public function listMerchants(): array
     {
         return Merchant::query()
             ->with('clientStatus')
             ->orderByDesc('id')
-            ->limit(500)
             ->get()
             ->map(function (Merchant $merchant) {
                 $entityType = is_numeric($merchant->reseller_type) ? (int) $merchant->reseller_type : null;
@@ -67,6 +79,7 @@ class MerchantRegistrationService
                 return [
                     'id' => $merchant->id,
                     'client_id' => $merchant->client_id,
+                    'client_status_id' => (int) $merchant->client_status_id,
                     'legal_name' => $merchant->legal_name,
                     'dba_name' => $merchant->dba_name,
                     'merchant_name' => $merchant->merchant_name,
@@ -74,11 +87,26 @@ class MerchantRegistrationService
                     'entity_type' => $entityType,
                     'entity_type_label' => Merchant::ENTITY_TYPES[$entityType] ?? null,
                     'registration_status' => $merchant->registration_status,
-                    'account_status' => $merchant->clientStatus->status ?? 'active',
+                    'account_status' => $this->accountStatusLabel((int) $merchant->client_status_id),
                     'creation_date' => $merchant->creation_date,
                 ];
             })
             ->all();
+    }
+
+    /**
+     * `client_status` only has lookup rows for 0 (active) and 1 (inactive) —
+     * `-1` (self-registered, never activated) and `2` (admin-deactivated)
+     * have no matching row, so `$merchant->clientStatus->status ?? 'active'`
+     * was silently defaulting BOTH to "active", mislabeling every
+     * deactivated/unactivated merchant. Legacy's own per-row label logic
+     * (client_management.php) is a straight binary: `client_status_id == 0`
+     * shows the active label, anything else shows "Deactivated" — mirrored
+     * here as active/inactive to match the frontend's existing badge map.
+     */
+    private function accountStatusLabel(int $clientStatusId): string
+    {
+        return $clientStatusId === 0 ? 'active' : 'inactive';
     }
 
     /**
@@ -116,7 +144,7 @@ class MerchantRegistrationService
             'contactphone' => $merchant->phone_no,
             'contactfax' => $merchant->fax_no,
             'registration_status' => $merchant->registration_status,
-            'account_status' => $merchant->clientStatus->status ?? 'active',
+            'account_status' => $this->accountStatusLabel((int) $merchant->client_status_id),
             'client_prefund' => (float) $merchant->client_prefund,
             'ezpay_merchant' => ($merchant->is_ezpay ?? '0') === '1',
             'logo' => $details->logo ?? '',
@@ -445,7 +473,7 @@ class MerchantRegistrationService
             'client_record_id' => $merchantId,
             'trans_type_id' => 2,
             'amount' => 0,
-            'description' => 'registered client account ' . $clientId,
+            'description' => 'registered client account '.$clientId,
             'timestamp' => $now->toDateTimeString(),
             'admin_user_id' => 0,
         ]);

@@ -19,6 +19,12 @@ use Illuminate\Validation\ValidationException;
  * submission, clicking "View" on ANY of their list rows always showed the
  * SAME (oldest) submission; the others were unreachable. Keying by the
  * row's own id makes every submission independently viewable.
+ *
+ * The list is scoped to rows with a matching `customers` row, matching
+ * legacy's `get_customer_docs()` INNER JOIN. `wu_uploaded_request.customer_id`
+ * has no FK constraint (it's a loose varchar reference), and 9 of the 33
+ * live rows point at a customer_id that no longer exists (one is even
+ * NULL) — legacy's join silently drops these; `whereHas()` replicates that.
  */
 class CustomerDocumentService
 {
@@ -66,6 +72,7 @@ class CustomerDocumentService
     public function list(): array
     {
         return WuUploadedRequest::with('customer')
+            ->whereHas('customer')
             ->orderBy('created_at')
             ->get()
             ->map(fn (WuUploadedRequest $request) => $this->present($request))

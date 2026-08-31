@@ -33,8 +33,14 @@ class MerchantDashboardController extends Controller
             ? Merchant::query()->where('creation_date', '>=', $periodStart)
             : Merchant::query();
 
+        // client_status_id has 4 live values: 0=active, 1=inactive (schema
+        // default, unused by any admin action), 2=deactivated via the admin's
+        // own deactivate action, and -1=self-registered/never activated by an
+        // admin. Only bucketing 0 and 1 left -1 and 2 (54% of all merchants)
+        // out of both counts, so the two never summed to the total. Since
+        // none of 1/2/-1 can transact, "inactive" is simply "not active".
         $active = (clone $scoped())->where('client_status_id', 0)->count();
-        $inactive = (clone $scoped())->where('client_status_id', 1)->count();
+        $inactive = (clone $scoped())->where('client_status_id', '!=', 0)->count();
         $approved = (clone $scoped())->where('registration_status', 'A')->count();
         $pending = (clone $scoped())->where(function ($query) {
             $query->whereNull('registration_status')->orWhere('registration_status', '!=', 'A');
