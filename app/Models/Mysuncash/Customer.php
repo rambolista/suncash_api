@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable([
     'first_name', 'last_name', 'gender', 'birthday', 'address1',
     'is_sub_account', 'is_new', 'status', 'country', 'ezkard_account_id', 'merchant_id',
-    'customer_access', 'reason_reject', 'updated_by', 'updated_on',
+    'customer_access', 'reason_reject', 'updated_by', 'updated_on', 'mobile', 'reward_identifier',
 ])]
 class Customer extends Model
 {

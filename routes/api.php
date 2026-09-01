@@ -26,7 +26,10 @@ use App\Http\Controllers\Api\Auth\TwoFactorSettingsController;
 use App\Http\Controllers\Api\Auth\UnlockController;
 use App\Http\Controllers\Api\Auth\UserController as AuthUserController;
 use App\Http\Controllers\Api\Customer\CardVerificationController;
+use App\Http\Controllers\Api\Customer\CustomerArchiveController;
+use App\Http\Controllers\Api\Customer\CustomerBankLoadController;
 use App\Http\Controllers\Api\Customer\CustomerDocumentController;
+use App\Http\Controllers\Api\Customer\CustomerLoginLogController;
 use App\Http\Controllers\Api\Customer\CustomerSettlementController;
 use App\Http\Controllers\Api\CustomerAuth\ForgotPasswordController as CustomerForgotPasswordController;
 use App\Http\Controllers\Api\CustomerAuth\LoginController as CustomerLoginController;
@@ -373,6 +376,28 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/transactions', [CustomerSettlementController::class, 'transactions'])->whereNumber('id');
         Route::post('/{id}/approve', [CustomerSettlementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [CustomerSettlementController::class, 'reject'])->whereNumber('id');
+    });
+
+    Route::prefix('customer-bank-loads')->group(function () {
+        Route::get('/', [CustomerBankLoadController::class, 'index']);
+        Route::get('/{id}', [CustomerBankLoadController::class, 'show'])->whereNumber('id');
+        Route::get('/{id}/history', [CustomerBankLoadController::class, 'history'])->whereNumber('id');
+        Route::get('/{id}/transactions', [CustomerBankLoadController::class, 'transactions'])->whereNumber('id');
+        Route::post('/{id}/approve', [CustomerBankLoadController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [CustomerBankLoadController::class, 'reject'])->whereNumber('id');
+    });
+
+    Route::prefix('customer-archive')->group(function () {
+        Route::get('/', [CustomerArchiveController::class, 'index']);
+        Route::get('/{id}', [CustomerArchiveController::class, 'show'])->whereNumber('id');
+        Route::get('/{id}/transactions', [CustomerArchiveController::class, 'transactions'])->whereNumber('id');
+        Route::get('/{id}/export', [CustomerArchiveController::class, 'export'])->whereNumber('id');
+        Route::post('/{id}/archive', [CustomerArchiveController::class, 'archive'])->whereNumber('id');
+    });
+
+    Route::prefix('customer-login-logs')->group(function () {
+        Route::get('/success', [CustomerLoginLogController::class, 'success']);
+        Route::get('/failed', [CustomerLoginLogController::class, 'failed']);
     });
 
     // Access Management — Menus

@@ -4,6 +4,7 @@ namespace App\Models\Mysuncash;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A physical/virtual card record (`ezkard_accounts`). Sub Account import
@@ -22,4 +23,9 @@ class EzkardAccount extends Model
     protected $table = 'ezkard_accounts';
 
     public $timestamps = false;
+
+    public function merchant(): BelongsTo
+    {
+        return $this->belongsTo(Merchant::class, 'client_id');
+    }
 }
