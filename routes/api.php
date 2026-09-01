@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\CustomerAuth\ResetPasswordController as CustomerRes
 use App\Http\Controllers\Api\CustomerAuth\TwoFactorChallengeController as CustomerTwoFactorChallengeController;
 use App\Http\Controllers\Api\CustomerAuth\TwoFactorSettingsController as CustomerTwoFactorSettingsController;
 use App\Http\Controllers\Api\CustomerProfileController;
+use App\Http\Controllers\Api\Dashboard\CustomerDashboardController;
 use App\Http\Controllers\Api\Dashboard\MerchantDashboardController;
 use App\Http\Controllers\Api\FloatManagement\CurrentStoreFloatController;
 use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
@@ -172,6 +173,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard
     Route::prefix('dashboard')->group(function () {
         Route::get('/merchants', [MerchantDashboardController::class, 'index']);
+        Route::get('/customers', [CustomerDashboardController::class, 'index']);
     });
 
     // Settings
