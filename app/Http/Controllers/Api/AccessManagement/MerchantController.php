@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantRegistrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,6 +72,8 @@ class MerchantController extends Controller
             ], 422);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchants', 'created', "Registered merchant {$result['client_id']}.", null, $request);
+
         return response()->json([
             'message' => 'Merchant registered successfully.',
             'client_record_id' => $result['client_record_id'],
@@ -110,6 +113,8 @@ class MerchantController extends Controller
                 'errors' => $exception->errors(),
             ], $status);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchants', 'updated', "Updated merchant {$result['client_id']}.", null, $request);
 
         return response()->json([
             'message' => 'Merchant updated successfully.',

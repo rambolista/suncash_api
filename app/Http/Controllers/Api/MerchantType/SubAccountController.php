@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\MerchantType;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Mysuncash\Merchant;
 use App\Services\MerchantType\SubAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -67,6 +69,8 @@ class SubAccountController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Sub Accounts', 'import', "Imported {$result['imported']} sub account(s) ({$result['skipped']} skipped) for business #{$id}", Merchant::find($id), $request);
 
         return response()->json(['message' => 'Sub accounts imported successfully.'] + $result);
     }

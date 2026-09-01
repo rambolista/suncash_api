@@ -68,6 +68,7 @@ use App\Http\Controllers\Api\Settings\NotificationSettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\ThemePreferenceController;
+use App\Http\Controllers\Api\UserActivityController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -375,6 +376,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Access Management — Menus
+    Route::prefix('user-activity')->group(function () {
+        Route::get('/', [UserActivityController::class, 'index']);
+        Route::post('/visit', [UserActivityController::class, 'visit']);
+    });
+
     Route::prefix('access-management')->group(function () {
         Route::get('/menu-icons', [MenuIconController::class, 'index']);
         Route::apiResource('/menus', MenuController::class);

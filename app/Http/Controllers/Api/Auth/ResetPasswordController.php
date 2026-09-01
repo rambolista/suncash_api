@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class ResetPasswordController extends Controller
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
+            function ($user, $password) use ($request) {
                 $user->forceFill([
                     'password'       => Hash::make($password),
                     'remember_token' => Str::random(60),
@@ -39,6 +40,8 @@ class ResetPasswordController extends Controller
                 $user->tokens()->delete();
 
                 event(new PasswordReset($user));
+
+                ActivityLog::recordAction($user, 'Authentication', 'password_reset', "{$user->name} reset their password", $user, $request);
             }
         );
 

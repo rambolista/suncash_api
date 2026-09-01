@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Merchant;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantMoneyService;
 use App\Services\Merchant\MerchantStatementService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -100,6 +101,8 @@ class MerchantStatementController extends Controller
         $columns = self::COLUMNS;
         $rows = $data['rows'];
 
+        ActivityLog::recordAction($request->user(), 'Merchant Statement', 'exported', 'Exported statement for '.$data['merchant']['dba_name']." ({$dateFrom} to {$dateTo}, ".strtoupper($format).', '.count($rows).' rows)', null, $request);
+
         if ($format === 'pdf') {
             // Unlike Settlements/Billpay (bounded to an approval queue), a statement's
             // row count is driven by an arbitrary admin-picked date range and can span
@@ -151,6 +154,8 @@ class MerchantStatementController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Statement', 'adjusted', ucfirst($type)." of {$amount} applied to merchant #{$id} prefund balance: {$description}", null, $request);
 
         return response()->json(['message' => 'Adjustment applied successfully.'] + $result);
     }

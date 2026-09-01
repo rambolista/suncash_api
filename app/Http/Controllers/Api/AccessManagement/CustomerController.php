@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Customer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,6 +53,8 @@ class CustomerController extends Controller
             $customer->replaceAvatar($request->file('avatar'));
         }
 
+        ActivityLog::recordCreated($request->user(), 'Customers', $customer, ['account_number', 'first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address', 'status'], $request);
+
         return response()->json($this->serializeCustomer($customer->fresh()), 201);
     }
 
@@ -71,6 +74,7 @@ class CustomerController extends Controller
         }
 
         $data = $this->validatePayload($request, $customer, true);
+        $before = $customer->getAttributes();
         $updatePayload = [];
 
         if (array_key_exists('account_number', $data) && filled($data['account_number'])) {
@@ -126,6 +130,8 @@ class CustomerController extends Controller
             $customer->clearAvatar();
         }
 
+        ActivityLog::recordUpdated($request->user(), 'Customers', $customer, $before, ['account_number', 'first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address', 'status'], $request);
+
         return response()->json($this->serializeCustomer($customer->fresh()));
     }
 
@@ -139,7 +145,10 @@ class CustomerController extends Controller
             Storage::disk('public')->delete($customer->avatar_path);
         }
 
+        $before = $customer->getAttributes();
         $customer->delete();
+
+        ActivityLog::recordDeleted($request->user(), 'Customers', $customer, $before, ['account_number', 'first_name', 'last_name', 'email'], $request);
 
         return response()->json(['message' => 'Customer deleted.']);
     }

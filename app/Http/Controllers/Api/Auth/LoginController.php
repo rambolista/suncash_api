@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use App\Services\TwoFactorChallengeService;
 use Illuminate\Http\JsonResponse;
@@ -50,6 +51,8 @@ class LoginController extends Controller
         $token = $user->createToken('api-token')->plainTextToken;
 
         $user->loadMissing('roles');
+
+        ActivityLog::recordAction($user, 'Authentication', 'logged_in', "{$user->name} logged in", $user, $request);
 
         return response()->json([
             'token' => $token,

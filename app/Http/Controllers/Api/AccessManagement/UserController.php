@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,8 @@ class UserController extends Controller
             $user->roles()->sync($data['role_ids']);
         }
 
+        ActivityLog::recordCreated($request->user(), 'Users', $user, ['first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address', 'status'], $request);
+
         return response()->json($this->serializeUser($user->fresh('roles:id,name')), 201);
     }
 
@@ -65,6 +68,7 @@ class UserController extends Controller
         }
 
         $data = $this->validatePayload($request, $user, true);
+        $before = $user->getAttributes();
 
         $updatePayload = [];
 
@@ -122,6 +126,8 @@ class UserController extends Controller
             $user->roles()->sync($data['role_ids'] ?? []);
         }
 
+        ActivityLog::recordUpdated($request->user(), 'Users', $user, $before, ['first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address', 'status'], $request);
+
         return response()->json($this->serializeUser($user->fresh('roles:id,name')));
     }
 
@@ -142,7 +148,10 @@ class UserController extends Controller
             \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar_path);
         }
 
+        $before = $user->getAttributes();
         $user->delete();
+
+        ActivityLog::recordDeleted($request->user(), 'Users', $user, $before, ['first_name', 'last_name', 'email'], $request);
 
         return response()->json(['message' => 'User deleted.']);
     }
@@ -161,6 +170,8 @@ class UserController extends Controller
         ]);
 
         $user->roles()->sync($request->input('role_ids'));
+
+        ActivityLog::recordAction($request->user(), 'Users', 'updated', "Assigned roles to {$user->name}", $user, $request);
 
         return response()->json([
             'message'  => 'Roles assigned.',

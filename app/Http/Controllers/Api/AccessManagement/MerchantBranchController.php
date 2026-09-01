@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantBranchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,6 +64,8 @@ class MerchantBranchController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Branches', 'created', "Created branch {$result['branch_code']} for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Branch created successfully.', 'branch' => $result], 201);
     }
 
@@ -78,6 +81,8 @@ class MerchantBranchController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Branches', 'updated', "Updated branch {$result['branch_code']} for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Branch updated successfully.', 'branch' => $result]);
     }
 
@@ -92,6 +97,8 @@ class MerchantBranchController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Branches', 'status_changed', "Changed status of branch #{$branchId} for merchant #{$id} to {$request->input('status')}.", null, $request);
 
         return response()->json(['message' => 'Branch status updated successfully.'] + $result);
     }

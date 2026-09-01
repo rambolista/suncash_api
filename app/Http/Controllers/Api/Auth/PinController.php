@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -23,7 +24,13 @@ class PinController extends Controller
             ]);
         }
 
+        $isFirstSet = ! is_string($request->user()->pin);
+
         $request->user()->forceFill(['pin' => Hash::make($data['pin'])])->save();
+
+        $action = $isFirstSet ? 'pin_set' : 'pin_changed';
+        $description = $isFirstSet ? "{$request->user()->name} set a PIN" : "{$request->user()->name} changed their PIN";
+        ActivityLog::recordAction($request->user(), 'Authentication', $action, $description, $request->user(), $request);
 
         return response()->json(['message' => 'PIN updated.', 'has_pin' => true]);
     }

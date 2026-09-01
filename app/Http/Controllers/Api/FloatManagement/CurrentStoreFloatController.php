@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\FloatManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\FloatManagement\StoreFloatAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,8 @@ class CurrentStoreFloatController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'request_account', "Requested store float account for merchant #{$account->merchant_id} (min {$account->minimum_account}, max {$account->maximum_account})", $account, $request);
+
         return response()->json(['message' => 'Store float account requested successfully.', 'account' => $account], 201);
     }
 
@@ -81,6 +84,8 @@ class CurrentStoreFloatController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'topup', "Topped up store float account #{$account->id} (merchant #{$account->merchant_id}) by {$request->input('amount')}", $account, $request);
+
         return response()->json(['message' => 'Store float account topped up successfully.', 'account' => $account]);
     }
 
@@ -95,6 +100,8 @@ class CurrentStoreFloatController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Float Management', 'request_replenishment', "Requested store float replenishment of {$replenishment->amount} for merchant #{$replenishment->merchant_id}", $replenishment, $request);
 
         return response()->json(['message' => 'Replenishment requested successfully.', 'replenishment' => $replenishment], 201);
     }

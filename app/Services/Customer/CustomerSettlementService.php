@@ -2,6 +2,7 @@
 
 namespace App\Services\Customer;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Bank;
 use App\Models\Mysuncash\BankAccount;
 use App\Models\Mysuncash\BusinessBillpayBank;
@@ -14,6 +15,7 @@ use App\Models\Mysuncash\KioskBankAccount;
 use App\Models\Mysuncash\KioskManager;
 use App\Models\Mysuncash\SystemSetting;
 use App\Models\Mysuncash\UserAccount;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -485,6 +487,8 @@ class CustomerSettlementService
             }
         });
 
+        ActivityLog::recordAction(User::find($actorId), 'Customer Settlements', 'approved', 'Approved settlement request #'.sprintf('%08d', $settlement->id).' for '.number_format((float) $settlement->amount, 2), $settlement, null);
+
         return ['message' => 'Transaction has been process successfully.'];
     }
 
@@ -555,6 +559,8 @@ class CustomerSettlementService
                 }
             }
         });
+
+        ActivityLog::recordAction(User::find($actorId), 'Customer Settlements', 'rejected', 'Rejected settlement request #'.sprintf('%08d', $settlement->id).($message !== '' ? ": {$message}" : ''), $settlement, null);
 
         return ['message' => 'Transaction has been rejected successfully.'];
     }

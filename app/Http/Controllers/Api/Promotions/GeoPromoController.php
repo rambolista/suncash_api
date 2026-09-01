@@ -65,7 +65,7 @@ class GeoPromoController extends Controller
         }
 
         try {
-            $promo = $this->geoPromos->create($request->all(), $this->actorName($request));
+            $promo = $this->geoPromos->create($request->all(), $this->actorName($request), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -80,7 +80,7 @@ class GeoPromoController extends Controller
         }
 
         try {
-            $promo = $this->geoPromos->update($id, $request->all(), $this->actorName($request));
+            $promo = $this->geoPromos->update($id, $request->all(), $this->actorName($request), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -95,7 +95,7 @@ class GeoPromoController extends Controller
         }
 
         try {
-            $this->geoPromos->delete($id, $this->actorName($request));
+            $this->geoPromos->delete($id, $this->actorName($request), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -40,6 +41,8 @@ class ChangePasswordController extends Controller
         // Revoke all tokens and issue a fresh one
         $request->user()->tokens()->delete();
         $token = $request->user()->createToken('api-token')->plainTextToken;
+
+        ActivityLog::recordAction($request->user(), 'Authentication', 'password_changed', "{$request->user()->name} changed their password", $request->user(), $request);
 
         return response()->json([
             'message' => 'Password updated successfully.',

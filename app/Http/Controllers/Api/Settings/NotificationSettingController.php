@@ -64,7 +64,7 @@ class NotificationSettingController extends Controller
         }
 
         try {
-            $setting = $this->notifications->update($id, $request->all());
+            $setting = $this->notifications->update($id, $request->all(), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -79,7 +79,7 @@ class NotificationSettingController extends Controller
         }
 
         try {
-            $result = $this->notifications->toggle($id, $request->boolean('is_enabled'));
+            $result = $this->notifications->toggle($id, $request->boolean('is_enabled'), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

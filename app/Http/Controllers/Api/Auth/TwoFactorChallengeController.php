@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\TotpService;
 use App\Services\TwoFactorChallengeService;
 use Illuminate\Http\JsonResponse;
@@ -53,6 +54,8 @@ class TwoFactorChallengeController extends Controller
         $challenge->delete();
         $user->tokens()->delete();
         $token = $user->createToken('api-token')->plainTextToken;
+
+        ActivityLog::recordAction($user, 'Authentication', 'logged_in', "{$user->name} logged in", $user, $request);
 
         return response()->json([
             'token' => $token,

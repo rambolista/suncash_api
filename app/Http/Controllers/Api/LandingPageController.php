@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\ManagesLandingPages;
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\LandingPage;
 use App\Models\ProjectSetting;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +46,8 @@ class LandingPageController extends Controller
         $this->authorizeSuperAdmin($request);
         $page = LandingPage::query()->create($this->validated($request));
 
+        ActivityLog::recordCreated($request->user(), 'Landing Page', $page, ['name', 'slug', 'description', 'header_sign_in_label', 'header_sign_in_url', 'header_sign_up_label', 'header_sign_up_url', 'is_navigation_fixed', 'status', 'is_active'], $request);
+
         return response()->json(['landing_page' => $this->serializePage($page)], 201);
     }
 
@@ -60,6 +63,7 @@ class LandingPageController extends Controller
     {
         $this->authorizeSuperAdmin($request);
         $data = $this->validated($request, $landingPage);
+        $before = $landingPage->getAttributes();
 
         DB::transaction(function () use ($landingPage, $data) {
             $landingPage->update($data);
@@ -69,6 +73,8 @@ class LandingPageController extends Controller
                     ->update(['landing_page_id' => null]);
             }
         });
+
+        ActivityLog::recordUpdated($request->user(), 'Landing Page', $landingPage, $before, ['name', 'slug', 'description', 'header_sign_in_label', 'header_sign_in_url', 'header_sign_up_label', 'header_sign_up_url', 'is_navigation_fixed', 'status', 'is_active'], $request);
 
         return response()->json(['landing_page' => $this->serializePage($landingPage->fresh())]);
     }
@@ -146,6 +152,8 @@ class LandingPageController extends Controller
 
         $copy->load('sections.items');
 
+        ActivityLog::recordAction($request->user(), 'Landing Page', 'duplicated', "Duplicated landing page \"{$landingPage->name}\" as \"{$copy->name}\"", $copy, $request);
+
         return response()->json(['landing_page' => $this->serializePage($copy, true)], 201);
     }
 
@@ -160,6 +168,8 @@ class LandingPageController extends Controller
             ...$section->items->pluck('image_path'),
         ])->filter()->all();
 
+        $before = $landingPage->getAttributes();
+
         DB::transaction(function () use ($landingPage) {
             ProjectSetting::query()
                 ->where('landing_page_id', $landingPage->id)
@@ -168,6 +178,8 @@ class LandingPageController extends Controller
         });
 
         Storage::disk('public')->delete($paths);
+
+        ActivityLog::recordDeleted($request->user(), 'Landing Page', $landingPage, $before, ['name', 'slug', 'status'], $request);
 
         return response()->json(['message' => 'Landing page deleted.']);
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use App\Models\ProfileChangeHistory;
 use Illuminate\Http\JsonResponse;
@@ -69,6 +70,7 @@ class UserProfileController extends Controller
         }
 
         $changes = [];
+        $before = $user->getAttributes();
 
         foreach ($updatePayload as $field => $value) {
             if ($field === 'name') {
@@ -95,6 +97,8 @@ class UserProfileController extends Controller
                 ]);
             }
         });
+
+        ActivityLog::recordUpdated($request->user(), 'User Profile', $user, $before, ['first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address'], $request);
 
         return response()->json([
             'user' => $user->fresh()->loadMissing('roles:id,name'),
@@ -124,6 +128,8 @@ class UserProfileController extends Controller
         ]);
 
         $user->replaceAvatar($request->file('avatar'));
+
+        ActivityLog::recordAction($request->user(), 'User Profile', 'updated', 'Updated own avatar', $user, $request);
 
         return response()->json([
             'avatar_url' => $user->fresh()->avatar_url,

@@ -2,7 +2,9 @@
 
 namespace App\Services\Settings;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Maintenance;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -47,14 +49,18 @@ class CustomerAppSettingService
     /**
      * @throws ValidationException
      */
-    public function toggle(int $id, bool $enabled): array
+    public function toggle(int $id, bool $enabled, Request $request): array
     {
         $row = Maintenance::whereIn('channel', array_keys(self::CHANNELS))->find($id);
         if (! $row) {
             throw ValidationException::withMessages(['id' => ['Setting not found.']]);
         }
 
+        $before = $row->getAttributes();
         $row->update(['under_maintenance' => $enabled ? 1 : 0]);
+
+        $label = self::CHANNELS[$row->channel] ?? $row->channel;
+        ActivityLog::recordUpdated($request->user(), 'Customer App Settings', $row, $before, ['under_maintenance'], $request, ($enabled ? 'Enabled' : 'Disabled')." \"{$label}\"");
 
         return ['id' => $row->id, 'is_enabled' => $enabled];
     }

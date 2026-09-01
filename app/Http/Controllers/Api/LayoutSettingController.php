@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\LayoutSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,10 +39,13 @@ class LayoutSettingController extends Controller
         ]);
 
         $settings = $this->settings($scope);
+        $before = $settings->getAttributes();
         $settings->update([
             'settings' => [...$settings->settings, ...$data],
             'updated_by' => $request->user()->id,
         ]);
+
+        ActivityLog::recordUpdated($request->user(), 'Layout Settings', $settings, $before, ['settings'], $request);
 
         return response()->json([
             'settings' => $settings->fresh()->settings,
@@ -70,6 +74,8 @@ class LayoutSettingController extends Controller
 
             return [$settings->fresh(), $user->fresh()];
         });
+
+        ActivityLog::recordAction($request->user(), 'Layout Settings', 'updated', "Updated global theme to \"{$data['theme']}\"", $settings, $request);
 
         return response()->json([
             'settings' => $settings->settings,

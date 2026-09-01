@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Kyc;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Customer;
 use App\Services\Kyc\KycUpgradeService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -84,6 +85,8 @@ class KycUpgradeController extends Controller
         $columns = $status === Customer::ACCESS_REJECTED
             ? KycUpgradeService::COLUMNS
             : array_slice(KycUpgradeService::COLUMNS, 0, 4);
+
+        ActivityLog::recordAction($request->user(), 'KYC Upgrade', 'exported', 'Exported KYC Upgrade list ('.($tab ?: 'all').' tab, '.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
         if ($format === 'pdf') {
             return Pdf::loadView('reports.table', [

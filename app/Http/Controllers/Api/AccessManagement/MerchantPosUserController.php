@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\MerchantTerminalUser;
 use App\Services\Merchant\MerchantPosUserService;
 use Illuminate\Http\JsonResponse;
@@ -63,6 +64,8 @@ class MerchantPosUserController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant POS Users', 'created', "Added POS user for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'POS user added successfully.', 'user' => $result], 201);
     }
 
@@ -78,6 +81,8 @@ class MerchantPosUserController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant POS Users', 'updated', "Updated POS user #{$userId} for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'POS user updated successfully.', 'user' => $result]);
     }
 
@@ -92,6 +97,8 @@ class MerchantPosUserController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant POS Users', 'deleted', "Removed POS user #{$userId} for merchant #{$id}.", null, $request);
 
         return response()->json(['message' => 'POS user removed successfully.']);
     }

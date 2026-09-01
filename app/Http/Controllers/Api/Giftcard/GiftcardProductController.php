@@ -62,7 +62,7 @@ class GiftcardProductController extends Controller
         }
 
         try {
-            $result = $this->products->activate($id);
+            $result = $this->products->activate($id, $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -77,7 +77,7 @@ class GiftcardProductController extends Controller
         }
 
         try {
-            $result = $this->products->deactivate($id);
+            $result = $this->products->deactivate($id, $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

@@ -37,7 +37,7 @@ class CustomerAppSettingController extends Controller
         }
 
         try {
-            $result = $this->settings->toggle($id, $request->boolean('is_enabled'));
+            $result = $this->settings->toggle($id, $request->boolean('is_enabled'), $request);
         } catch (ValidationException $exception) {
             return response()->json(['message' => 'Not found.', 'errors' => $exception->errors()], 404);
         }

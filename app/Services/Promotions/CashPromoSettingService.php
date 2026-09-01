@@ -2,7 +2,9 @@
 
 namespace App\Services\Promotions;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\CashPromoSetting;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -126,13 +128,13 @@ class CashPromoSettingService
     /**
      * @throws ValidationException
      */
-    public function create(array $data): CashPromoSetting
+    public function create(array $data, Request $request): CashPromoSetting
     {
         $this->validate($data);
 
         $quantity = (int) ($data['quantity'] ?? 0);
 
-        return CashPromoSetting::create([
+        $setting = CashPromoSetting::create([
             'price' => (float) $data['price'],
             'quantity' => $quantity,
             'remaining_quantity' => $quantity,
@@ -148,12 +150,16 @@ class CashPromoSettingService
             'draw_date' => $data['draw_date'] ?? null,
             'other_service' => 'all',
         ]);
+
+        ActivityLog::recordCreated($request->user(), 'Cash Promo Settings', $setting, ['price', 'quantity', 'description', 'target_group_type', 'draw_type', 'draw_date', 'status'], $request);
+
+        return $setting;
     }
 
     /**
      * @throws ValidationException
      */
-    public function update(int $id, array $data): CashPromoSetting
+    public function update(int $id, array $data, Request $request): CashPromoSetting
     {
         $setting = CashPromoSetting::where('promo_type', $this->activePromoType())->find($id);
         if (! $setting) {
@@ -163,6 +169,7 @@ class CashPromoSettingService
         $this->validate($data);
 
         $quantity = (int) ($data['quantity'] ?? 0);
+        $before = $setting->getAttributes();
 
         $setting->update([
             'price' => (float) $data['price'],
@@ -178,19 +185,24 @@ class CashPromoSettingService
             'draw_date' => $data['draw_date'] ?? null,
         ]);
 
+        ActivityLog::recordUpdated($request->user(), 'Cash Promo Settings', $setting, $before, ['price', 'quantity', 'remaining_quantity', 'description', 'target_group_type', 'target_group', 'draw_type', 'draw_date'], $request);
+
         return $setting->fresh();
     }
 
     /**
      * @throws ValidationException
      */
-    public function delete(int $id): void
+    public function delete(int $id, Request $request): void
     {
         $setting = CashPromoSetting::where('promo_type', $this->activePromoType())->find($id);
         if (! $setting) {
             throw ValidationException::withMessages(['id' => ['Cash promo setting not found.']]);
         }
 
+        $before = $setting->getAttributes();
         $setting->update(['status' => CashPromoSetting::STATUS_DELETED, 'updated_date' => now()]);
+
+        ActivityLog::recordUpdated($request->user(), 'Cash Promo Settings', $setting, $before, ['status'], $request, "Removed cash promo setting: {$setting->description}");
     }
 }

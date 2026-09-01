@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,8 @@ class DeleteAccountController extends Controller
 
         $user->clearAvatar();
 
+        $before = $user->getAttributes();
+
         DB::transaction(function () use ($user): void {
             $user->tokens()->delete();
             $user->twoFactorChallenges()->delete();
@@ -37,6 +40,8 @@ class DeleteAccountController extends Controller
             $user->notifications()->delete();
             $user->delete();
         });
+
+        ActivityLog::recordAction($user, 'Authentication', 'account_deleted', "{$before['name']} deleted their own account ({$before['email']})", $user, $request);
 
         return response()->json(['message' => 'Account deleted.']);
     }

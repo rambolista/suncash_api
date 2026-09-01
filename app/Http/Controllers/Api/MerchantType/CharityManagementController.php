@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\MerchantType;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Mysuncash\Merchant;
 use App\Services\MerchantType\CharityManagementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -69,10 +71,17 @@ class CharityManagementController extends Controller
             return $response;
         }
 
+        $merchantForLog = Merchant::find($id);
+        $before = $merchantForLog ? $merchantForLog->getAttributes() : [];
+
         try {
             $data = $this->charity->updateInitialInfo($id, $request->all(), $this->actorName($request));
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
+        }
+
+        if ($merchantForLog) {
+            ActivityLog::recordUpdated($request->user(), 'Charity Management', $merchantForLog->fresh(), $before, ['dba_name', 'suntag_shortcode', 'require_second_auth'], $request);
         }
 
         return response()->json(['message' => 'Charity updated successfully.'] + $data);
@@ -90,6 +99,8 @@ class CharityManagementController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Charity Management', 'approve', "Approved charity #{$merchant->id} ({$merchant->dba_name})", $merchant, $request);
+
         return response()->json(['message' => 'Charity approved successfully.', 'merchant' => $merchant]);
     }
 
@@ -105,6 +116,8 @@ class CharityManagementController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Charity Management', 'reject', "Rejected charity #{$merchant->id} ({$merchant->dba_name})", $merchant, $request);
+
         return response()->json(['message' => 'Charity rejected successfully.', 'merchant' => $merchant]);
     }
 
@@ -119,6 +132,8 @@ class CharityManagementController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Charity Management', 'activate', "Activated charity #{$merchant->id} ({$merchant->dba_name})", $merchant, $request);
 
         return response()->json(['message' => 'Charity activated successfully.', 'merchant' => $merchant]);
     }

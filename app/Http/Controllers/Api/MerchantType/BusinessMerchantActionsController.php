@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\MerchantType;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Mysuncash\Merchant;
 use App\Services\MerchantType\BusinessMerchantActionsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -56,6 +58,8 @@ class BusinessMerchantActionsController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Business Management', 'update', "Updated card hold days to {$data['card_hold_days']} for business #{$id}", Merchant::find($id), $request);
+
         return response()->json(['message' => 'Card hold settings updated successfully.'] + $data);
     }
 
@@ -70,6 +74,8 @@ class BusinessMerchantActionsController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Business Management', 'update', "Updated Suncash transaction fee to {$data['suncash_transaction_fee']} for business #{$id}", Merchant::find($id), $request);
 
         return response()->json(['message' => 'Suncash transaction fee updated successfully.'] + $data);
     }
@@ -86,6 +92,8 @@ class BusinessMerchantActionsController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Business Management', 'update', "Updated authorized auth settings for business #{$id} (limit: {$data['reauth_amount_limit']}, hold days: {$data['reauth_card_hold_days']})", Merchant::find($id), $request);
+
         return response()->json(['message' => 'Authorized auth settings updated successfully.'] + $data);
     }
 
@@ -100,6 +108,8 @@ class BusinessMerchantActionsController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Business Management', 'update', "Updated GC fee to {$data['gc_fee']} for business #{$id}", Merchant::find($id), $request);
 
         return response()->json(['message' => 'GC fee updated successfully.'] + $data);
     }
@@ -131,6 +141,8 @@ class BusinessMerchantActionsController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Business Management', 'update', "Updated voucher settings for business #{$id}", Merchant::find($id), $request);
+
         return response()->json(['message' => 'Voucher setting updated successfully.'] + $data);
     }
 
@@ -161,6 +173,8 @@ class BusinessMerchantActionsController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Business Management', 'approve_card', "Approved linked card #{$cardId} for business #{$id}", Merchant::find($id), $request);
+
         return response()->json(['message' => 'Card approved successfully.'] + $data);
     }
 
@@ -180,6 +194,8 @@ class BusinessMerchantActionsController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Business Management', 'reject_card', "Rejected linked card #{$cardId} for business #{$id} ({$reason})", Merchant::find($id), $request);
 
         return response()->json(['message' => 'Card rejected successfully.'] + $data);
     }

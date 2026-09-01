@@ -3,6 +3,7 @@
 namespace App\Services\Merchant;
 
 use App\Mail\MerchantSettlementDecisionMail;
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\BankAccount;
 use App\Models\Mysuncash\BusinessBillpayBank;
 use App\Models\Mysuncash\ClientTransaction;
@@ -13,6 +14,7 @@ use App\Models\Mysuncash\MerchantBankAccount;
 use App\Models\Mysuncash\MerchantTransactionHistory;
 use App\Models\Mysuncash\SystemSetting;
 use App\Models\Mysuncash\UserAccount;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -290,7 +292,7 @@ class MerchantSettlementService
     /**
      * @throws ValidationException
      */
-    public function linkBankAccount(array $data): array
+    public function linkBankAccount(array $data, string $actorUserId): array
     {
         $bankId = (int) ($data['bank_id'] ?? 0);
         $accountName = trim((string) ($data['account_name'] ?? ''));
@@ -310,12 +312,14 @@ class MerchantSettlementService
             throw ValidationException::withMessages($errors);
         }
 
-        BankAccount::create([
+        $bankAccount = BankAccount::create([
             'business_billpay_banks_id' => $bankId,
             'account_name' => $accountName,
             'account_no' => $accountNo,
             'status' => 'A',
         ]);
+
+        ActivityLog::recordCreated(User::find($actorUserId), 'Merchant Settlements', $bankAccount, ['business_billpay_banks_id', 'account_name', 'account_no', 'status'], null);
 
         return $this->listLinkedBankAccounts();
     }
@@ -323,7 +327,7 @@ class MerchantSettlementService
     /**
      * @throws ValidationException
      */
-    public function approve(int $id, array $data, string $actorId): array
+    public function approve(int $id, array $data, string $actorId, string $actorUserId): array
     {
         $settlement = $this->findOrFail($id);
         if ($settlement->status !== ManualSettlement::STATUS_PENDING) {
@@ -425,13 +429,15 @@ class MerchantSettlementService
 
         $this->sendDecisionEmail($merchant, true, $message);
 
+        ActivityLog::recordAction(User::find($actorUserId), 'Merchant Settlements', 'approved', 'Approved merchant settlement request #'.sprintf('%08d', $settlement->id).' for '.number_format($faceAmount, 2), $settlement, null);
+
         return ['message' => 'Request has been approved.'];
     }
 
     /**
      * @throws ValidationException
      */
-    public function reject(int $id, array $data, string $actorId): array
+    public function reject(int $id, array $data, string $actorId, string $actorUserId): array
     {
         $settlement = $this->findOrFail($id);
         if ($settlement->status !== ManualSettlement::STATUS_PENDING) {
@@ -459,6 +465,8 @@ class MerchantSettlementService
         if ($merchant) {
             $this->sendDecisionEmail($merchant, false, $message);
         }
+
+        ActivityLog::recordAction(User::find($actorUserId), 'Merchant Settlements', 'rejected', 'Rejected merchant settlement request #'.sprintf('%08d', $settlement->id).($message !== '' ? ": {$message}" : ''), $settlement, null);
 
         return ['message' => 'Request has been rejected.'];
     }

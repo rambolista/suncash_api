@@ -2,8 +2,10 @@
 
 namespace App\Services\Promotions;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\PromoItem;
 use App\Models\Mysuncash\SuncashPromoSetting;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -157,14 +159,14 @@ class PromoItemService
     /**
      * @throws ValidationException
      */
-    public function create(array $data, ?UploadedFile $image): PromoItem
+    public function create(array $data, ?UploadedFile $image, Request $request): PromoItem
     {
         $this->validate($data, requireImage: true, image: $image);
 
         $drawType = $data['draw_type'];
         $quantity = $this->normalizeQuantityForDrawType($drawType, (int) $data['quantity'], $data['draw_date'] ?? null, null);
 
-        return PromoItem::create([
+        $item = PromoItem::create([
             'branch_id' => (int) $data['branch_id'],
             'merchant_id' => (int) $data['merchant_id'],
             'image_url' => $this->storeImage($image),
@@ -180,12 +182,16 @@ class PromoItemService
             'draw_date' => $data['draw_date'] ?? null,
             'other_service' => 'all',
         ]);
+
+        ActivityLog::recordCreated($request->user(), 'Promo Items', $item, ['branch_id', 'merchant_id', 'item_description', 'quantity', 'draw_type', 'draw_date', 'status'], $request);
+
+        return $item;
     }
 
     /**
      * @throws ValidationException
      */
-    public function update(int $id, array $data, ?UploadedFile $image): PromoItem
+    public function update(int $id, array $data, ?UploadedFile $image, Request $request): PromoItem
     {
         $item = PromoItem::where('event_description', $this->activePromoType())->find($id);
         if (! $item) {
@@ -221,7 +227,10 @@ class PromoItemService
             $updates['image_url'] = $this->storeImage($image);
         }
 
+        $before = $item->getAttributes();
         $item->update($updates);
+
+        ActivityLog::recordUpdated($request->user(), 'Promo Items', $item, $before, ['branch_id', 'merchant_id', 'item_description', 'quantity', 'draw_type', 'draw_date', 'image_url'], $request);
 
         return $item->fresh();
     }
@@ -229,13 +238,16 @@ class PromoItemService
     /**
      * @throws ValidationException
      */
-    public function delete(int $id): void
+    public function delete(int $id, Request $request): void
     {
         $item = PromoItem::where('event_description', $this->activePromoType())->find($id);
         if (! $item) {
             throw ValidationException::withMessages(['id' => ['Promo item not found.']]);
         }
 
+        $before = $item->getAttributes();
         $item->update(['status' => PromoItem::STATUS_DELETED, 'updated_date' => now()]);
+
+        ActivityLog::recordUpdated($request->user(), 'Promo Items', $item, $before, ['status'], $request, "Removed promo item: {$item->item_description}");
     }
 }

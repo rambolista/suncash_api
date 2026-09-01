@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\TotpService;
 use App\Services\TwoFactorChallengeService;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +72,8 @@ class TwoFactorSettingsController extends Controller
 
         $challenge->delete();
 
+        ActivityLog::recordAction($request->user(), 'Authentication', 'two_factor_enabled', "{$request->user()->name} enabled two-factor authentication ({$request->user()->two_factor_method})", $request->user(), $request);
+
         return response()->json([
             'message' => 'Two-factor authentication enabled.',
             'method' => $request->user()->two_factor_method,
@@ -91,6 +94,8 @@ class TwoFactorSettingsController extends Controller
             'two_factor_secret' => null,
             'two_factor_enabled_at' => null,
         ])->save();
+
+        ActivityLog::recordAction($request->user(), 'Authentication', 'two_factor_disabled', "{$request->user()->name} disabled two-factor authentication", $request->user(), $request);
 
         return response()->json(['message' => 'Two-factor authentication disabled.']);
     }

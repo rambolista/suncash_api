@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantFloatAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,6 +59,8 @@ class MerchantFloatAccountController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Float Accounts', $result['enabled'] ? 'enabled' : 'disabled', ($result['enabled'] ? 'Enabled' : 'Disabled')." store float for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => $result['enabled'] ? 'Store float enabled.' : 'Store float disabled.'] + $result);
     }
 
@@ -73,6 +76,8 @@ class MerchantFloatAccountController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Float Accounts', 'requested', "Requested store float account for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Store float account requested successfully.', 'request' => $result], 201);
     }
 
@@ -87,6 +92,8 @@ class MerchantFloatAccountController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Float Accounts', 'updated', "Updated store float account for merchant #{$id}.", null, $request);
 
         return response()->json(['message' => 'Store float account updated successfully.', 'account' => $result]);
     }

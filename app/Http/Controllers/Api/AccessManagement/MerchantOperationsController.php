@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantOperationsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,6 +65,8 @@ class MerchantOperationsController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'updated', "Saved principal info for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Principal info saved successfully.', 'principal' => $principal]);
     }
 
@@ -80,6 +83,8 @@ class MerchantOperationsController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'reset_password', "Reset password for merchant #{$id}.", null, $request);
 
         return response()->json([
             'message' => "Password reset — new credentials were e-mailed to {$result['email']}.",
@@ -110,6 +115,8 @@ class MerchantOperationsController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'added', "Added portal user for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'User added successfully.'] + $result, 201);
     }
 
@@ -126,6 +133,8 @@ class MerchantOperationsController extends Controller
         } catch (ValidationException $exception) {
             return $this->notFound($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', $result['active'] ? 'activated' : 'deactivated', ($result['active'] ? 'Activated' : 'Deactivated')." merchant #{$id}.", null, $request);
 
         return response()->json([
             'message' => $result['active'] ? 'Merchant activated.' : 'Merchant deactivated.',
@@ -158,6 +167,8 @@ class MerchantOperationsController extends Controller
             return $this->notFound($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'updated', "Updated Ezpay access for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Ezpay access updated successfully.', 'granted' => $granted]);
     }
 
@@ -183,6 +194,8 @@ class MerchantOperationsController extends Controller
         } catch (ValidationException $exception) {
             return $this->notFound($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'updated', "Updated services permission for merchant #{$id}.", null, $request);
 
         return response()->json(['message' => 'Services permission updated successfully.', 'services' => $services]);
     }

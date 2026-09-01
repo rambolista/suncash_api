@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\FloatManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\FloatManagement\MainReserveAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,8 @@ class MainReserveAccountController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'approve', "Approved main reserve account request #{$account->id}", $account, $request);
+
         return response()->json(['message' => 'Request approved successfully.', 'account' => $account]);
     }
 
@@ -71,6 +74,8 @@ class MainReserveAccountController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Float Management', 'reject', "Rejected main reserve account request #{$account->id}", $account, $request);
 
         return response()->json(['message' => 'Request rejected successfully.', 'account' => $account]);
     }
@@ -87,6 +92,8 @@ class MainReserveAccountController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'confirm', "Confirmed main reserve account replenishment #{$account->id} of {$account->repl_amount}", $account, $request);
+
         return response()->json(['message' => 'Replenishment confirmed successfully.', 'account' => $account]);
     }
 
@@ -102,6 +109,8 @@ class MainReserveAccountController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'topup', "Topped up main reserve account #{$account->id} by {$request->input('amount')}", $account, $request);
+
         return response()->json(['message' => 'Main reserve account topped up successfully.', 'account' => $account]);
     }
 
@@ -116,6 +125,8 @@ class MainReserveAccountController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Float Management', 'request_replenishment', "Requested main reserve account replenishment #{$account->id} of {$request->input('amount')}", $account, $request);
 
         return response()->json(['message' => 'Replenishment requested successfully.', 'account' => $account], 201);
     }

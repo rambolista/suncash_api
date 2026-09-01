@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\FloatManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\FloatManagement\StoreFloatAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,8 @@ class StoreFloatReplenishmentController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'approve', "Approved store float replenishment #{$replenishment->id} (merchant #{$replenishment->merchant_id}) of {$replenishment->amount}", $replenishment, $request);
+
         return response()->json(['message' => 'Replenishment approved successfully.', 'replenishment' => $replenishment]);
     }
 
@@ -72,6 +75,8 @@ class StoreFloatReplenishmentController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Float Management', 'reject', "Rejected store float replenishment #{$replenishment->id} (merchant #{$replenishment->merchant_id}) of {$replenishment->amount}", $replenishment, $request);
+
         return response()->json(['message' => 'Replenishment rejected successfully.', 'replenishment' => $replenishment]);
     }
 
@@ -86,6 +91,8 @@ class StoreFloatReplenishmentController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Float Management', 'confirm', "Confirmed store float replenishment #{$replenishment->id} (merchant #{$replenishment->merchant_id}) of {$replenishment->amount}", $replenishment, $request);
 
         return response()->json(['message' => 'Replenishment confirmed successfully.', 'replenishment' => $replenishment]);
     }

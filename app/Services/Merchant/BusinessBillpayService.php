@@ -2,6 +2,7 @@
 
 namespace App\Services\Merchant;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\BusinessBillTransaction;
 use App\Models\Mysuncash\ClientTransaction;
 use App\Models\Mysuncash\ClientTransactionDetail;
@@ -11,6 +12,7 @@ use App\Models\Mysuncash\EzkardAccount;
 use App\Models\Mysuncash\EzkardTransaction;
 use App\Models\Mysuncash\Merchant;
 use App\Models\Mysuncash\MerchantTransactionHistory;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -169,7 +171,7 @@ class BusinessBillpayService
     /**
      * @throws ValidationException
      */
-    public function reject(int $id, string $actorId): array
+    public function reject(int $id, string $actorId, string $actorUserId): array
     {
         $bt = $this->findOrFail($id);
 
@@ -198,13 +200,15 @@ class BusinessBillpayService
             ]);
         });
 
+        ActivityLog::recordAction(User::find($actorUserId), 'Business Billpay', 'rejected', 'Rejected business billpay request #'.sprintf('%08d', $bt->transaction_id), $bt, null);
+
         return ['message' => 'Request has been rejected.'];
     }
 
     /**
      * @throws ValidationException
      */
-    public function approve(int $id, string $actorId): array
+    public function approve(int $id, string $actorId, string $actorUserId): array
     {
         $bt = $this->findOrFail($id);
 
@@ -212,9 +216,13 @@ class BusinessBillpayService
             throw ValidationException::withMessages(['status' => ['This request has already been processed.']]);
         }
 
-        return (bool) $bt->is_customer_payee
+        $result = (bool) $bt->is_customer_payee
             ? $this->approveB2c($bt, $actorId)
             : $this->approveB2b($bt, $actorId);
+
+        ActivityLog::recordAction(User::find($actorUserId), 'Business Billpay', 'approved', 'Approved business billpay request #'.sprintf('%08d', $bt->transaction_id), $bt, null);
+
+        return $result;
     }
 
     /**

@@ -43,6 +43,7 @@ class WuSettingController extends Controller
                 (string) $request->user()->id,
                 (string) ($request->user()->name ?? $request->user()->email),
                 (string) $request->ip(),
+                $request,
             );
         } catch (ValidationException $exception) {
             return response()->json(['message' => 'Not found.', 'errors' => $exception->errors()], 404);

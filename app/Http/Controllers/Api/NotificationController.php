@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -34,6 +35,8 @@ class NotificationController extends Controller
         $item = $this->findForUser($request, $notification);
         $item->markAsRead();
 
+        ActivityLog::recordAction($request->user(), 'Notifications', 'updated', 'Marked notification as read', $item, $request);
+
         return response()->json(['message' => 'Notification marked as read.']);
     }
 
@@ -41,12 +44,17 @@ class NotificationController extends Controller
     {
         $request->user()->unreadNotifications->markAsRead();
 
+        ActivityLog::recordAction($request->user(), 'Notifications', 'updated', 'Marked all notifications as read', null, $request);
+
         return response()->json(['message' => 'Notifications marked as read.']);
     }
 
     public function destroy(Request $request, string $notification): JsonResponse
     {
-        $this->findForUser($request, $notification)->delete();
+        $item = $this->findForUser($request, $notification);
+        $item->delete();
+
+        ActivityLog::recordAction($request->user(), 'Notifications', 'deleted', 'Dismissed notification', $item, $request);
 
         return response()->json(['message' => 'Notification dismissed.']);
     }

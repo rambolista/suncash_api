@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Menu;
 use App\Models\User;
 use App\Notifications\SystemNotification;
@@ -87,6 +88,7 @@ class MenuController extends Controller
             return $menu->load('tabs');
         });
         $this->notifyMenuChange($request, $menu, 'created');
+        ActivityLog::recordCreated($request->user(), 'Menus', $menu, ['label', 'slug', 'url', 'icon', 'parent_id', 'sort_order', 'is_title', 'is_active', 'is_disabled', 'is_special', 'badge_text', 'badge_class', 'tab_layout'], $request);
 
         return response()->json($menu, 201);
     }
@@ -120,6 +122,8 @@ class MenuController extends Controller
             ...$this->tabRules(),
         ]);
 
+        $before = $menu->getAttributes();
+
         DB::transaction(function () use ($menu, $data): void {
             $menu->update(collect($data)->except('tabs')->all());
             if (array_key_exists('tabs', $data)) {
@@ -128,6 +132,7 @@ class MenuController extends Controller
         });
         $menu->load('tabs');
         $this->notifyMenuChange($request, $menu, 'updated');
+        ActivityLog::recordUpdated($request->user(), 'Menus', $menu, $before, ['label', 'slug', 'url', 'icon', 'parent_id', 'sort_order', 'is_title', 'is_active', 'is_disabled', 'is_special', 'badge_text', 'badge_class', 'tab_layout'], $request);
 
         return response()->json($menu);
     }
@@ -144,7 +149,10 @@ class MenuController extends Controller
         }
 
         $this->notifyMenuChange($request, $menu, 'deleted');
+        $before = $menu->getAttributes();
         $menu->delete();
+
+        ActivityLog::recordDeleted($request->user(), 'Menus', $menu, $before, ['label', 'slug'], $request);
 
         return response()->json(['message' => 'Menu deleted.']);
     }

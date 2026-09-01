@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Terminal;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Terminal;
 use App\Services\Terminal\TerminalManagementService;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +72,11 @@ class TerminalManagementController extends Controller
             return $this->invalid($exception);
         }
 
+        $terminalForLog = Terminal::find($result['id']);
+        if ($terminalForLog) {
+            ActivityLog::recordCreated($request->user(), 'Terminal Management', $terminalForLog, ['client_id', 'device_id', 'device_type_id', 'brand_name', 'model', 'connection_type_id'], $request);
+        }
+
         return response()->json(['message' => 'Terminal registered successfully.', 'terminal' => $result], 201);
     }
 
@@ -80,10 +86,17 @@ class TerminalManagementController extends Controller
             return $response;
         }
 
+        $terminalForLog = Terminal::find($id);
+        $before = $terminalForLog ? $terminalForLog->getAttributes() : [];
+
         try {
             $result = $this->terminals->update($id, $request->all(), $this->actorId($request));
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
+        }
+
+        if ($terminalForLog) {
+            ActivityLog::recordUpdated($request->user(), 'Terminal Management', $terminalForLog->fresh(), $before, ['device_id', 'device_type_id', 'brand_name', 'model', 'connection_type_id'], $request);
         }
 
         return response()->json(['message' => 'Terminal updated successfully.', 'terminal' => $result]);
@@ -103,6 +116,8 @@ class TerminalManagementController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Terminal Management', 'change_status', "Changed terminal #{$id} status to {$result['status']}", Terminal::find($id), $request);
 
         return response()->json(['message' => 'Terminal status updated successfully.'] + $result);
     }

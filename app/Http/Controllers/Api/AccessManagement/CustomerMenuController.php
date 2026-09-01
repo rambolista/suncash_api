@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\CustomerMenu;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,6 +51,8 @@ class CustomerMenuController extends Controller
 
         $menu = CustomerMenu::create($data);
 
+        ActivityLog::recordCreated($request->user(), 'Customer Menus', $menu, ['label', 'slug', 'url', 'icon', 'parent_id', 'sort_order', 'is_title', 'is_active', 'is_disabled', 'is_special', 'show_in_customer_page', 'badge_text', 'badge_class'], $request);
+
         return response()->json($menu, 201);
     }
 
@@ -75,7 +78,10 @@ class CustomerMenuController extends Controller
             'badge_class' => ['nullable', 'string', 'max:100'],
         ]);
 
+        $before = $customerMenu->getAttributes();
         $customerMenu->update($data);
+
+        ActivityLog::recordUpdated($request->user(), 'Customer Menus', $customerMenu, $before, ['label', 'slug', 'url', 'icon', 'parent_id', 'sort_order', 'is_title', 'is_active', 'is_disabled', 'is_special', 'show_in_customer_page', 'badge_text', 'badge_class'], $request);
 
         return response()->json($customerMenu);
     }
@@ -86,7 +92,10 @@ class CustomerMenuController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        $before = $customerMenu->getAttributes();
         $customerMenu->delete();
+
+        ActivityLog::recordDeleted($request->user(), 'Customer Menus', $customerMenu, $before, ['label', 'slug'], $request);
 
         return response()->json(['message' => 'Customer menu deleted.']);
     }

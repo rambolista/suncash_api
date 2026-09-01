@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\ManagesLandingPages;
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\LandingPage;
 use App\Models\LandingPageSection;
 use Illuminate\Http\JsonResponse;
@@ -43,6 +44,8 @@ class LandingPageSectionController extends Controller
             throw $error;
         }
 
+        ActivityLog::recordCreated($request->user(), 'Landing Page Section', $section, ['type', 'title', 'subtitle', 'sort_order', 'is_enabled'], $request);
+
         return response()->json(['section' => $this->serializeSection($section)], 201);
     }
 
@@ -69,6 +72,7 @@ class LandingPageSectionController extends Controller
         $this->ensureValidUpload($request, 'image', 'image');
         $this->ensureValidUpload($request, 'background_image', 'background image');
         $data = $this->validated($request, true);
+        $before = $section->getAttributes();
         $oldPaths = [];
 
         foreach (['image' => 'image_path', 'background_image' => 'background_image_path'] as $file => $column) {
@@ -88,6 +92,8 @@ class LandingPageSectionController extends Controller
 
         Storage::disk('public')->delete(array_filter($oldPaths));
 
+        ActivityLog::recordUpdated($request->user(), 'Landing Page Section', $section, $before, ['type', 'title', 'subtitle', 'sort_order', 'is_enabled'], $request);
+
         return response()->json(['section' => $this->serializeSection($section->fresh())]);
     }
 
@@ -105,8 +111,11 @@ class LandingPageSectionController extends Controller
             ...$section->items->pluck('image_path'),
         ];
 
+        $before = $section->getAttributes();
         $section->delete();
         Storage::disk('public')->delete(array_filter($paths));
+
+        ActivityLog::recordDeleted($request->user(), 'Landing Page Section', $section, $before, ['type', 'title', 'subtitle'], $request);
 
         return response()->json(['message' => 'Landing page section deleted.']);
     }
@@ -137,6 +146,8 @@ class LandingPageSectionController extends Controller
 
         $sections = $landingPage->sections()->with('items')->get()
             ->map(fn (LandingPageSection $section) => $this->serializeSection($section, true));
+
+        ActivityLog::recordAction($request->user(), 'Landing Page Section', 'reordered', "Reordered sections for \"{$landingPage->name}\"", $landingPage, $request);
 
         return response()->json(['sections' => $sections]);
     }

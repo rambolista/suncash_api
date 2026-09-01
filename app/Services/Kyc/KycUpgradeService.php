@@ -2,10 +2,12 @@
 
 namespace App\Services\Kyc;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Customer;
 use App\Models\Mysuncash\SubAccountSetting;
 use App\Models\Mysuncash\TransactionLimit;
 use App\Models\Mysuncash\WebLog;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -234,6 +236,8 @@ class KycUpgradeService
             ]);
         });
 
+        ActivityLog::recordAction(User::find($actorId), 'KYC Upgrade', 'approved', "Approved KYC upgrade for {$customer->first_name} {$customer->last_name} (customer #{$customer->id})", $customer, null);
+
         return ['id' => $customer->id, 'status' => Customer::ACCESS_FULL];
     }
 
@@ -266,6 +270,8 @@ class KycUpgradeService
                 'user_ip_address' => $actorIp,
             ]);
         });
+
+        ActivityLog::recordAction(User::find($actorId), 'KYC Upgrade', 'rejected', "Rejected KYC upgrade for {$customer->first_name} {$customer->last_name} (customer #{$customer->id}): {$reason}", $customer, null);
 
         return ['id' => $customer->id, 'status' => Customer::ACCESS_REJECTED];
     }

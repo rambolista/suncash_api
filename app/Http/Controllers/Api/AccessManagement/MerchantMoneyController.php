@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantMoneyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,8 @@ class MerchantMoneyController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Money', 'adjusted', "Adjusted prefund balance for merchant #{$id} ({$request->input('type')} {$request->input('amount')}).", null, $request);
+
         return response()->json(['message' => 'Prefund balance updated successfully.'] + $result);
     }
 
@@ -82,6 +85,8 @@ class MerchantMoneyController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Money', 'updated', "Updated auto replenish settings for merchant #{$id}.", null, $request);
 
         return response()->json(['message' => 'Auto replenish settings saved successfully.'] + $result);
     }
@@ -117,6 +122,8 @@ class MerchantMoneyController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Money', 'updated', "Updated agent commission settings for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Agent commission settings saved successfully.', 'settings' => $result]);
     }
 
@@ -131,6 +138,8 @@ class MerchantMoneyController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Money', 'added', "Added agent commission e-mail {$request->input('email')} for merchant #{$id}.", null, $request);
 
         return response()->json(['message' => 'E-mail added successfully.', 'email' => $result], 201);
     }
@@ -147,6 +156,8 @@ class MerchantMoneyController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Money', 'updated', "Updated agent commission e-mail #{$emailId} for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'E-mail updated successfully.', 'email' => $result]);
     }
 
@@ -161,6 +172,8 @@ class MerchantMoneyController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Money', 'deleted', "Removed agent commission e-mail #{$emailId} for merchant #{$id}.", null, $request);
 
         return response()->json(['message' => 'E-mail removed successfully.']);
     }

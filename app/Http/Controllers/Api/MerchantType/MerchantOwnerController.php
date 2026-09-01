@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\MerchantType;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Mysuncash\MerchantOwner;
 use App\Services\MerchantType\MerchantOwnerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +46,8 @@ class MerchantOwnerController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordCreated($request->user(), 'Business Management', $owner, ['owner_name', 'dob', 'mobile_number', 'id_type', 'id_number', 'position_level'], $request);
+
         return response()->json(['message' => 'Owner added successfully.', 'owner' => $owner], 201);
     }
 
@@ -53,11 +57,15 @@ class MerchantOwnerController extends Controller
             return $response;
         }
 
+        $before = MerchantOwner::where('client_record_id', $merchantId)->find($ownerId)?->getAttributes() ?? [];
+
         try {
             $owner = $this->owners->update($merchantId, $ownerId, $request->all());
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordUpdated($request->user(), 'Business Management', $owner, $before, ['owner_name', 'dob', 'mobile_number', 'id_type', 'id_number', 'position_level'], $request);
 
         return response()->json(['message' => 'Owner updated successfully.', 'owner' => $owner]);
     }

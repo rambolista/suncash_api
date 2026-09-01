@@ -2,9 +2,11 @@
 
 namespace App\Services\Settings;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Maintenance;
 use App\Models\Mysuncash\SystemSetting;
 use App\Models\Mysuncash\WebLog;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -64,12 +66,14 @@ class WuSettingService
     /**
      * @throws ValidationException
      */
-    public function toggle(int $id, bool $enabled, string $actorId, string $actorName, string $ipAddress): array
+    public function toggle(int $id, bool $enabled, string $actorId, string $actorName, string $ipAddress, Request $request): array
     {
         $setting = SystemSetting::where('setting_type', 'wu_setting')->find($id);
         if (! $setting) {
             throw ValidationException::withMessages(['id' => ['WU setting not found.']]);
         }
+
+        $before = $setting->getAttributes();
 
         if ($setting->set_code === self::AMOUNT_LIMIT_CODE) {
             $setting->update(['is_enable' => $enabled ? 'true' : 'false']);
@@ -91,6 +95,9 @@ class WuSettingService
             'user_ip_address' => $ipAddress,
             'web_channel' => 'admin',
         ]);
+
+        $label = self::FRIENDLY_NAMES[$setting->set_code] ?? $setting->name;
+        ActivityLog::recordUpdated($request->user(), 'WU Settings', $setting, $before, ['is_enable', 'set_value'], $request, ($enabled ? 'Enabled' : 'Disabled')." \"{$label}\"");
 
         return ['id' => $setting->id, 'is_enabled' => $enabled];
     }

@@ -2,7 +2,9 @@
 
 namespace App\Services\Settings;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\SystemSetting;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -71,7 +73,7 @@ class NotificationSettingService
     /**
      * @throws ValidationException
      */
-    public function update(int $id, array $data): array
+    public function update(int $id, array $data, Request $request): array
     {
         $setting = $this->findOrFail($id);
 
@@ -93,7 +95,10 @@ class NotificationSettingService
             $setValue = html_entity_decode(strip_tags($setValue));
         }
 
+        $before = $setting->getAttributes();
         $setting->update(['set_value' => $setValue, 'subject' => $subject ?: null]);
+
+        ActivityLog::recordUpdated($request->user(), 'Notification Settings', $setting, $before, ['set_value', 'subject'], $request);
 
         return $this->find($id);
     }
@@ -101,10 +106,14 @@ class NotificationSettingService
     /**
      * @throws ValidationException
      */
-    public function toggle(int $id, bool $enabled): array
+    public function toggle(int $id, bool $enabled, Request $request): array
     {
         $setting = $this->findOrFail($id);
+
+        $before = $setting->getAttributes();
         $setting->update(['is_enable' => $enabled ? 'true' : 'false']);
+
+        ActivityLog::recordUpdated($request->user(), 'Notification Settings', $setting, $before, ['is_enable'], $request, ($enabled ? 'Enabled' : 'Disabled')." notification \"{$setting->name}\"");
 
         return ['id' => $setting->id, 'is_enabled' => $enabled];
     }

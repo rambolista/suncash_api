@@ -2,8 +2,10 @@
 
 namespace App\Services\Giftcard;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\GiftcardProductType;
 use App\Models\Mysuncash\MerchantGiftcard;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -132,7 +134,7 @@ class GiftcardProductService
      *
      * @throws ValidationException
      */
-    private function setStatus(int $id, string $status): array
+    private function setStatus(int $id, string $status, Request $request): array
     {
         $product = $this->findOrFail($id);
 
@@ -141,10 +143,13 @@ class GiftcardProductService
             throw ValidationException::withMessages(['status' => ["This product is already {$label}."]]);
         }
 
+        $before = $product->getAttributes();
         $product->status = $status;
         $product->save();
 
         GiftcardProductType::where('product_id', $product->id)->update(['status' => $status]);
+
+        ActivityLog::recordUpdated($request->user(), 'Giftcard Products', $product, $before, ['status'], $request);
 
         return ['id' => $product->id, 'status' => $status];
     }
@@ -152,16 +157,16 @@ class GiftcardProductService
     /**
      * @throws ValidationException
      */
-    public function activate(int $id): array
+    public function activate(int $id, Request $request): array
     {
-        return $this->setStatus($id, MerchantGiftcard::STATUS_ACTIVE);
+        return $this->setStatus($id, MerchantGiftcard::STATUS_ACTIVE, $request);
     }
 
     /**
      * @throws ValidationException
      */
-    public function deactivate(int $id): array
+    public function deactivate(int $id, Request $request): array
     {
-        return $this->setStatus($id, MerchantGiftcard::STATUS_DISABLED);
+        return $this->setStatus($id, MerchantGiftcard::STATUS_DISABLED, $request);
     }
 }

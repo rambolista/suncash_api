@@ -2,10 +2,12 @@
 
 namespace App\Services\Customer;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\CardBlacklist;
 use App\Models\Mysuncash\CustomerCreditCard;
 use App\Models\Mysuncash\CustomerOtherFile;
 use App\Models\Mysuncash\WebLog;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -240,6 +242,8 @@ class CardVerificationService
         $card->updated_by = $actorId;
         $card->save();
 
+        ActivityLog::recordAction(User::find($actorId), 'Card Verification', 'approved', "Approved card verification for {$card->cardholder_name} (card ending {$card->card_last_four_digits})", $card, null);
+
         return ['id' => $card->id, 'status' => 'approved'];
     }
 
@@ -261,6 +265,8 @@ class CardVerificationService
         $card->rejected_reason = $reason;
         $card->updated_by = $actorId;
         $card->save();
+
+        ActivityLog::recordAction(User::find($actorId), 'Card Verification', 'rejected', "Rejected card verification for {$card->cardholder_name} (card ending {$card->card_last_four_digits}): {$reason}", $card, null);
 
         return ['id' => $card->id, 'status' => 'rejected'];
     }
@@ -305,6 +311,8 @@ class CardVerificationService
                 'web_channel' => 'admin',
             ]);
         });
+
+        ActivityLog::recordAction(User::find($actorId), 'Card Verification', 'blacklisted', "Blacklisted card for {$card->cardholder_name} (card ending {$card->card_last_four_digits}): {$reason}", $card, null);
 
         return ['id' => $card->id, 'status' => 'blacklisted'];
     }

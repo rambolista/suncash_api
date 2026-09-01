@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\MerchantType;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Mysuncash\Merchant;
 use App\Services\MerchantType\BusinessManagementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -69,10 +71,17 @@ class BusinessManagementController extends Controller
             return $response;
         }
 
+        $merchantForLog = Merchant::find($id);
+        $before = $merchantForLog ? $merchantForLog->getAttributes() : [];
+
         try {
             $data = $this->business->updateInitialInfo($id, $request->all(), $this->actorName($request));
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
+        }
+
+        if ($merchantForLog) {
+            ActivityLog::recordUpdated($request->user(), 'Business Management', $merchantForLog->fresh(), $before, ['dba_name', 'trade_name', 'suntag_shortcode', 'risk_rating', 'business_size', 'require_second_auth'], $request);
         }
 
         return response()->json(['message' => 'Business updated successfully.'] + $data);
@@ -90,6 +99,8 @@ class BusinessManagementController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Business Management', 'approve', "Approved business #{$merchant->id} ({$merchant->dba_name})", $merchant, $request);
+
         return response()->json(['message' => 'Business approved successfully.', 'merchant' => $merchant]);
     }
 
@@ -105,6 +116,8 @@ class BusinessManagementController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Business Management', 'reject', "Rejected business #{$merchant->id} ({$merchant->dba_name})", $merchant, $request);
+
         return response()->json(['message' => 'Business rejected successfully.', 'merchant' => $merchant]);
     }
 
@@ -119,6 +132,8 @@ class BusinessManagementController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Business Management', 'activate', "Activated business #{$merchant->id} ({$merchant->dba_name})", $merchant, $request);
 
         return response()->json(['message' => 'Business activated successfully.', 'merchant' => $merchant]);
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\ManagesLandingPages;
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\LandingPage;
 use App\Models\LandingPageSection;
 use App\Models\LandingPageSectionItem;
@@ -49,6 +50,8 @@ class LandingPageSectionItemController extends Controller
             throw $error;
         }
 
+        ActivityLog::recordCreated($request->user(), 'Landing Page Section Item', $item, ['title', 'subtitle', 'sort_order', 'is_enabled'], $request);
+
         return response()->json(['item' => $this->serializeItem($item)], 201);
     }
 
@@ -75,6 +78,7 @@ class LandingPageSectionItemController extends Controller
         $this->decodeSettings($request);
         $this->ensureValidUpload($request, 'image', 'image');
         $data = $this->validated($request, true);
+        $before = $item->getAttributes();
         $oldPath = $request->hasFile('image') || $request->boolean('clear_image') ? $item->image_path : null;
         $newPath = $this->storeUpload($request, $data);
 
@@ -86,6 +90,8 @@ class LandingPageSectionItemController extends Controller
         }
 
         Storage::disk('public')->delete(array_filter([$oldPath]));
+
+        ActivityLog::recordUpdated($request->user(), 'Landing Page Section Item', $item, $before, ['title', 'subtitle', 'sort_order', 'is_enabled'], $request);
 
         return response()->json(['item' => $this->serializeItem($item->fresh())]);
     }
@@ -99,8 +105,11 @@ class LandingPageSectionItemController extends Controller
         $this->authorizeSuperAdmin($request);
         $this->ensureNested($landingPage, $section, $item);
         $path = $item->image_path;
+        $before = $item->getAttributes();
         $item->delete();
         Storage::disk('public')->delete(array_filter([$path]));
+
+        ActivityLog::recordDeleted($request->user(), 'Landing Page Section Item', $item, $before, ['title', 'subtitle'], $request);
 
         return response()->json(['message' => 'Landing page section item deleted.']);
     }
@@ -135,6 +144,8 @@ class LandingPageSectionItemController extends Controller
 
         $items = $section->items()->get()
             ->map(fn (LandingPageSectionItem $item) => $this->serializeItem($item));
+
+        ActivityLog::recordAction($request->user(), 'Landing Page Section Item', 'reordered', "Reordered items for section \"{$section->title}\"", $section, $request);
 
         return response()->json(['items' => $items]);
     }

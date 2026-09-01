@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,8 @@ class RegisterController extends Controller
         ]);
 
         $token = $user->createToken('api-token')->plainTextToken;
+
+        ActivityLog::recordCreated($user, 'Authentication', $user, ['first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address'], $request);
 
         return response()->json([
             'token' => $token,

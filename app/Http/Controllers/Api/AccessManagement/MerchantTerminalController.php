@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\Terminal;
 use App\Services\Merchant\MerchantTerminalService;
 use Illuminate\Http\JsonResponse;
@@ -59,6 +60,8 @@ class MerchantTerminalController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Terminals', 'created', "Registered terminal for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Terminal registered successfully.', 'terminal' => $result], 201);
     }
 
@@ -74,6 +77,8 @@ class MerchantTerminalController extends Controller
             return $this->invalid($exception);
         }
 
+        ActivityLog::recordAction($request->user(), 'Merchant Terminals', 'updated', "Updated terminal #{$terminalId} for merchant #{$id}.", null, $request);
+
         return response()->json(['message' => 'Terminal updated successfully.', 'terminal' => $result]);
     }
 
@@ -88,6 +93,8 @@ class MerchantTerminalController extends Controller
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Terminals', 'status_changed', "Changed status of terminal #{$terminalId} for merchant #{$id} to {$request->input('status')}.", null, $request);
 
         return response()->json(['message' => 'Terminal status updated successfully.'] + $result);
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\AccessManagement;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Menu;
 use App\Models\Role;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,8 @@ class RoleController extends Controller
         }
         $role->loadCount('users');
 
+        ActivityLog::recordCreated($request->user(), 'Roles', $role, ['name', 'description', 'key_responsibilities', 'icon'], $request);
+
         return response()->json($role, 201);
     }
 
@@ -68,6 +71,8 @@ class RoleController extends Controller
             'user_ids.*'  => ['integer', 'exists:users,id'],
         ]);
 
+        $before = $role->getAttributes();
+
         $role->update([
             'name' => $data['name'] ?? $role->name,
             'description' => array_key_exists('description', $data) ? $data['description'] : $role->description,
@@ -80,6 +85,8 @@ class RoleController extends Controller
         }
         $role->loadCount('users');
 
+        ActivityLog::recordUpdated($request->user(), 'Roles', $role, $before, ['name', 'description', 'key_responsibilities', 'icon'], $request);
+
         return response()->json($role);
     }
 
@@ -91,7 +98,10 @@ class RoleController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        $before = $role->getAttributes();
         $role->delete();
+
+        ActivityLog::recordDeleted($request->user(), 'Roles', $role, $before, ['name', 'description'], $request);
 
         return response()->json(['message' => 'Role deleted.']);
     }
@@ -226,6 +236,8 @@ class RoleController extends Controller
                 })
                 ->all(),
         );
+
+        ActivityLog::recordAction($request->user(), 'Roles', 'updated', "Saved menu permissions for {$role->name}", $role, $request);
 
         return response()->json(['message' => 'Permissions saved.']);
     }

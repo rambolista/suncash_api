@@ -47,7 +47,7 @@ class CashPromoSettingController extends Controller
         }
 
         try {
-            $setting = $this->cashPromos->create($request->all());
+            $setting = $this->cashPromos->create($request->all(), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -62,7 +62,7 @@ class CashPromoSettingController extends Controller
         }
 
         try {
-            $setting = $this->cashPromos->update($id, $request->all());
+            $setting = $this->cashPromos->update($id, $request->all(), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -77,7 +77,7 @@ class CashPromoSettingController extends Controller
         }
 
         try {
-            $this->cashPromos->delete($id);
+            $this->cashPromos->delete($id, $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

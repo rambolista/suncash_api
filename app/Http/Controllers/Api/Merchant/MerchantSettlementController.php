@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Merchant;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantSettlementService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -58,6 +59,8 @@ class MerchantSettlementController extends Controller
         $format = (string) $request->query('format', 'csv');
         $columns = MerchantSettlementService::COLUMNS;
         $rows = $this->settlements->exportRows($status);
+
+        ActivityLog::recordAction($request->user(), 'Merchant Settlements', 'exported', 'Exported Merchant Settlements list ('.($status ?: 'all').' status, '.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
         if ($format === 'pdf') {
             return Pdf::loadView('reports.table', [
@@ -142,7 +145,7 @@ class MerchantSettlementController extends Controller
         }
 
         try {
-            $data = $this->settlements->linkBankAccount($request->all());
+            $data = $this->settlements->linkBankAccount($request->all(), (string) $request->user()->id);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -157,7 +160,7 @@ class MerchantSettlementController extends Controller
         }
 
         try {
-            $result = $this->settlements->approve($id, $request->all(), $this->actorName($request));
+            $result = $this->settlements->approve($id, $request->all(), $this->actorName($request), (string) $request->user()->id);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -172,7 +175,7 @@ class MerchantSettlementController extends Controller
         }
 
         try {
-            $result = $this->settlements->reject($id, $request->all(), $this->actorName($request));
+            $result = $this->settlements->reject($id, $request->all(), $this->actorName($request), (string) $request->user()->id);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

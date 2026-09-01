@@ -47,7 +47,7 @@ class PromoItemController extends Controller
         }
 
         try {
-            $item = $this->promoItems->create($request->all(), $request->file('image'));
+            $item = $this->promoItems->create($request->all(), $request->file('image'), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -62,7 +62,7 @@ class PromoItemController extends Controller
         }
 
         try {
-            $item = $this->promoItems->update($id, $request->all(), $request->file('image'));
+            $item = $this->promoItems->update($id, $request->all(), $request->file('image'), $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -77,7 +77,7 @@ class PromoItemController extends Controller
         }
 
         try {
-            $this->promoItems->delete($id);
+            $this->promoItems->delete($id, $request);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Merchant;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Services\Merchant\BusinessBillpayService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -59,6 +60,8 @@ class BusinessBillpayController extends Controller
         $columns = BusinessBillpayService::COLUMNS;
         $rows = $this->billpay->exportRows($status);
 
+        ActivityLog::recordAction($request->user(), 'Business Billpay', 'exported', 'Exported Business Billpay list ('.($status ?: 'all').' status, '.strtoupper($format).', '.count($rows).' rows)', null, $request);
+
         if ($format === 'pdf') {
             return Pdf::loadView('reports.table', [
                 'title' => 'Business Billpay',
@@ -106,7 +109,7 @@ class BusinessBillpayController extends Controller
         }
 
         try {
-            $result = $this->billpay->approve($id, $this->actorName($request));
+            $result = $this->billpay->approve($id, $this->actorName($request), (string) $request->user()->id);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
@@ -121,7 +124,7 @@ class BusinessBillpayController extends Controller
         }
 
         try {
-            $result = $this->billpay->reject($id, $this->actorName($request));
+            $result = $this->billpay->reject($id, $this->actorName($request), (string) $request->user()->id);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }

@@ -2,7 +2,9 @@
 
 namespace App\Services\Promotions;
 
+use App\Models\ActivityLog;
 use App\Models\Mysuncash\GeoPromo;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -100,11 +102,11 @@ class GeoPromoService
     /**
      * @throws ValidationException
      */
-    public function create(array $data, string $actorName): GeoPromo
+    public function create(array $data, string $actorName, Request $request): GeoPromo
     {
         $this->validate($data);
 
-        return GeoPromo::create([
+        $promo = GeoPromo::create([
             'promo_type' => 'Signup Promotion',
             'promo_amount' => (float) $data['promo_amount'],
             'promo_description' => $data['promo_description'],
@@ -119,12 +121,16 @@ class GeoPromoService
             )),
             'status' => GeoPromo::STATUS_ACTIVE,
         ]);
+
+        ActivityLog::recordCreated($request->user(), 'Geo Promo', $promo, ['promo_amount', 'promo_description', 'promo_country', 'date_from', 'date_to', 'status'], $request);
+
+        return $promo;
     }
 
     /**
      * @throws ValidationException
      */
-    public function update(int $id, array $data, string $actorName): GeoPromo
+    public function update(int $id, array $data, string $actorName, Request $request): GeoPromo
     {
         $promo = GeoPromo::where('status', GeoPromo::STATUS_ACTIVE)->find($id);
         if (! $promo) {
@@ -132,6 +138,8 @@ class GeoPromoService
         }
 
         $this->validate($data);
+
+        $before = $promo->getAttributes();
 
         $promo->update([
             'promo_amount' => (float) $data['promo_amount'],
@@ -147,19 +155,24 @@ class GeoPromoService
             )),
         ]);
 
+        ActivityLog::recordUpdated($request->user(), 'Geo Promo', $promo, $before, ['promo_amount', 'promo_description', 'promo_country', 'date_from', 'date_to', 'coordinates'], $request);
+
         return $promo->fresh();
     }
 
     /**
      * @throws ValidationException
      */
-    public function delete(int $id, string $actorName): void
+    public function delete(int $id, string $actorName, Request $request): void
     {
         $promo = GeoPromo::where('status', GeoPromo::STATUS_ACTIVE)->find($id);
         if (! $promo) {
             throw ValidationException::withMessages(['id' => ['Geo promo zone not found.']]);
         }
 
+        $before = $promo->getAttributes();
         $promo->update(['status' => GeoPromo::STATUS_DELETED, 'update_date' => now(), 'updated_by' => $actorName]);
+
+        ActivityLog::recordUpdated($request->user(), 'Geo Promo', $promo, $before, ['status'], $request, "Removed geo promo zone: {$promo->promo_description}");
     }
 }
