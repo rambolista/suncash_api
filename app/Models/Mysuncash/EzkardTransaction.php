@@ -4,6 +4,7 @@ namespace App\Models\Mysuncash;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A card-balance ledger entry (`ezkard_transactions`) — legacy's
@@ -22,4 +23,9 @@ class EzkardTransaction extends Model
     protected $table = 'ezkard_transactions';
 
     public $timestamps = false;
+
+    public function transactionType(): BelongsTo
+    {
+        return $this->belongsTo(TransactionType::class, 'trans_type_id');
+    }
 }

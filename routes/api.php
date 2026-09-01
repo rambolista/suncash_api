@@ -25,7 +25,9 @@ use App\Http\Controllers\Api\Auth\TwoFactorChallengeController;
 use App\Http\Controllers\Api\Auth\TwoFactorSettingsController;
 use App\Http\Controllers\Api\Auth\UnlockController;
 use App\Http\Controllers\Api\Auth\UserController as AuthUserController;
+use App\Http\Controllers\Api\Customer\CardVerificationController;
 use App\Http\Controllers\Api\Customer\CustomerDocumentController;
+use App\Http\Controllers\Api\Customer\CustomerSettlementController;
 use App\Http\Controllers\Api\CustomerAuth\ForgotPasswordController as CustomerForgotPasswordController;
 use App\Http\Controllers\Api\CustomerAuth\LoginController as CustomerLoginController;
 use App\Http\Controllers\Api\CustomerAuth\RegisterController as CustomerRegisterController;
@@ -352,6 +354,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('customer-documents')->group(function () {
         Route::get('/', [CustomerDocumentController::class, 'index']);
         Route::get('/{id}', [CustomerDocumentController::class, 'show'])->whereNumber('id');
+    });
+
+    Route::prefix('card-verification')->group(function () {
+        Route::get('/', [CardVerificationController::class, 'index']);
+        Route::get('/{id}', [CardVerificationController::class, 'show'])->whereNumber('id');
+        Route::post('/{id}/approve', [CardVerificationController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [CardVerificationController::class, 'reject'])->whereNumber('id');
+        Route::post('/{id}/blacklist', [CardVerificationController::class, 'blacklist'])->whereNumber('id');
+    });
+
+    Route::prefix('customer-settlements')->group(function () {
+        Route::get('/', [CustomerSettlementController::class, 'index']);
+        Route::get('/linked-bank-accounts', [CustomerSettlementController::class, 'linkedBankAccounts']);
+        Route::get('/{id}', [CustomerSettlementController::class, 'show'])->whereNumber('id');
+        Route::get('/{id}/history', [CustomerSettlementController::class, 'history'])->whereNumber('id');
+        Route::get('/{id}/transactions', [CustomerSettlementController::class, 'transactions'])->whereNumber('id');
+        Route::post('/{id}/approve', [CustomerSettlementController::class, 'approve'])->whereNumber('id');
+        Route::post('/{id}/reject', [CustomerSettlementController::class, 'reject'])->whereNumber('id');
     });
 
     // Access Management — Menus
