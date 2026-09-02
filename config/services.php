@@ -49,4 +49,19 @@ return [
         'verify_ssl' => env('CENPOS_VERIFY_SSL', true),
     ],
 
+    /*
+    | Infobip SMS gateway — used by Transactions > Resend Transaction Receipt
+    | to text a customer their receipt link. Mirrors legacy's
+    | settings::send_sms(), which POSTs to Infobip's Advanced SMS API with a
+    | hardcoded production API key. `enabled` defaults OFF so this codebase
+    | never sends a real SMS until a deployment deliberately turns it on with
+    | real production credentials.
+    */
+    'infobip' => [
+        'enabled' => env('INFOBIP_ENABLED', false),
+        'base_url' => env('INFOBIP_BASE_URL', 'https://api.infobip.com'),
+        'api_key' => env('INFOBIP_API_KEY'),
+        'sender' => env('INFOBIP_SENDER', 'suncash'),
+    ],
+
 ];

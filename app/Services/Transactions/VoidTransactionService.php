@@ -4,21 +4,16 @@ namespace App\Services\Transactions;
 
 use App\Models\ActivityLog;
 use App\Models\Mysuncash\BusinessBillTransaction;
-use App\Models\Mysuncash\CashoutTransactionDetailV3;
 use App\Models\Mysuncash\CashoutTransactionV3;
-use App\Models\Mysuncash\CheckCashingTransaction;
-use App\Models\Mysuncash\ClientTransaction;
-use App\Models\Mysuncash\ClientTransactionDetail;
 use App\Models\Mysuncash\Customer;
-use App\Models\Mysuncash\CustomerTransactionHistory;
-use App\Models\Mysuncash\DonateTransaction;
 use App\Models\Mysuncash\EzkardAccount;
 use App\Models\Mysuncash\EzkardTransaction;
-use App\Models\Mysuncash\Merchant;
 use App\Models\Mysuncash\MerchantVoucher;
 use App\Models\Mysuncash\UniversalVoucher;
 use App\Models\Mysuncash\WebposTransaction;
 use App\Models\User;
+use App\Services\Transactions\Support\LedgerAdjuster;
+use App\Services\Transactions\Support\TransactionRowFetcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -41,7 +36,10 @@ use Illuminate\Validation\ValidationException;
  * `client_settlement` via `client_transactions`/`client_transaction_details`)
  * that mirrors legacy's `_adjust_client_balance()` — the first place in this
  * rewrite that touches those tables generically rather than through a single
- * merchant's own settlement/prefund screens.
+ * merchant's own settlement/prefund screens. That reversal logic, plus the
+ * per-type row lookups shared with Resend Transaction Receipt, live in
+ * `Support\LedgerAdjuster` and `Support\TransactionRowFetcher` respectively
+ * rather than here, so either can be reused without duplicating them again.
  *
  * Several legacy branches (MONEY_TRANSFER, CASHOUT_CODE, CASHOUT_MOBILE,
  * DONATION, CHECKCASHING) have NO "already voided" guard at all — re-running
@@ -78,138 +76,10 @@ class VoidTransactionService
 
     private const CHECKCASHING_CLIENT_ID = 116; // clients.client_id = 'CHECKCASHING'
 
-    // ── shared helpers ──────────────────────────────────────────────────────
-
-    private function nextTransactionId(): string
-    {
-        $id = (string) time();
-        while (DB::connection('mysuncash')->table('ezkard_transactions')->where('transaction_id', $id)->exists()) {
-            $id = (string) (((int) $id) + 1);
-        }
-
-        return $id;
-    }
-
-    /**
-     * Mirrors legacy's `_adjust_client_balance()` — moves money into/out of
-     * one of a merchant's `clients.client_{prefund|settlement|fee}` buckets,
-     * logging a `client_transactions` + `client_transaction_details` row.
-     *
-     * @throws ValidationException
-     */
-    private function adjustClientBalance(int $clientId, string $accountType, string $direction, float $amount, int $transTypeId, string $description, int|string|null $refTransId = null): void
-    {
-        $merchant = Merchant::find($clientId);
-        if (! $merchant) {
-            throw ValidationException::withMessages(['id' => ['Merchant account not found.']]);
-        }
-
-        $field = match ($accountType) {
-            'prefund' => 'client_prefund',
-            'settlement' => 'client_settlement',
-            'fee' => 'client_fee',
-        };
-        $detailType = match ($accountType) {
-            'prefund' => ClientTransactionDetail::ACCOUNT_TYPE_PREFUND,
-            'settlement' => ClientTransactionDetail::ACCOUNT_TYPE_SETTLEMENT,
-            'fee' => ClientTransactionDetail::ACCOUNT_TYPE_FEE,
-        };
-
-        if ($direction === 'less' && (float) $merchant->{$field} < $amount) {
-            throw ValidationException::withMessages(['amount' => ['Insufficient merchant balance.']]);
-        }
-
-        $direction === 'add' ? $merchant->increment($field, $amount) : $merchant->decrement($field, $amount);
-        $merchant->refresh();
-
-        $clientTransaction = ClientTransaction::create([
-            'client_record_id' => $clientId,
-            'user_type_id' => 1,
-            'ref_trans_id' => $refTransId,
-            'trans_type_id' => $transTypeId,
-            'amount' => $amount,
-            'description' => $description,
-            'timestamp' => now(),
-            'is_merchant' => 1,
-            'merchant_id' => $clientId,
-            'running_balance' => $merchant->{$field},
-            'available_balance' => $merchant->{$field},
-        ]);
-
-        ClientTransactionDetail::create([
-            'client_transaction_id' => $clientTransaction->id,
-            'client_account_type' => $detailType,
-            'client_record_id' => $clientId,
-            'amount' => $amount,
-        ]);
-    }
-
-    /**
-     * Mirrors legacy's `_adjust_card_account()`/`_adjust_wallet_account()` —
-     * moves money into/out of a customer's `ezkard_accounts.card_balance`
-     * and logs a brand-new `ezkard_transactions` row for it.
-     *
-     * @throws ValidationException
-     */
-    private function adjustCardBalance(int $ezkardId, string $direction, float $amount, int $transTypeId, string $description, ?int $merchantId = null, int|string|null $referenceId = null): EzkardTransaction
-    {
-        $ezkard = EzkardAccount::find($ezkardId);
-        if (! $ezkard) {
-            throw ValidationException::withMessages(['id' => ['Linked card account not found.']]);
-        }
-        if ($direction === 'less' && (float) $ezkard->card_balance < $amount) {
-            throw ValidationException::withMessages(['amount' => ['Insufficient customer balance.']]);
-        }
-
-        if ($direction === 'add') {
-            DB::connection('mysuncash')->table('ezkard_accounts')->where('id', $ezkardId)->increment('card_balance', $amount);
-        } else {
-            DB::connection('mysuncash')->table('ezkard_accounts')->where('id', $ezkardId)->decrement('card_balance', $amount);
-        }
-
-        return EzkardTransaction::create([
-            'merchant_id' => $merchantId,
-            'ezkard_id' => $ezkardId,
-            'transaction_id' => $this->nextTransactionId(),
-            'amount' => $amount,
-            'trans_type_id' => $transTypeId,
-            'description' => $description,
-            'reference_id' => $referenceId,
-            'timestamp' => now(),
-            'trans_status_id' => 0,
-        ]);
-    }
-
-    /** Mirrors legacy's `saveCustomerTransactionHistory()`. */
-    private function logCustomerHistory(?Customer $customer, ?int $ezkardAccountId, string $reference, string $type, string $category, string $description, float $amount, string $orientation): void
-    {
-        if (! $customer) {
-            return;
-        }
-
-        CustomerTransactionHistory::create([
-            'customer_id' => $customer->id,
-            'ezkard_account_id' => $ezkardAccountId,
-            'transaction_reference' => $reference,
-            'transaction_type' => $type,
-            'category' => $category,
-            'status' => 'COMPLETED',
-            'description' => $description,
-            'amount' => $amount,
-            'transaction_fee' => 0,
-            'sending_fee' => 0,
-            'vat' => 0,
-            'channel' => 'AdminPanel',
-            'finance_orientation' => $orientation,
-            'created_date' => now(),
-            'running_balance' => null,
-        ]);
-    }
-
-    private function customerByEzkardId(?int $ezkardId): ?Customer
-    {
-        return $ezkardId ? Customer::where('ezkard_account_id', $ezkardId)->first() : null;
-    }
+    public function __construct(
+        private readonly TransactionRowFetcher $rows,
+        private readonly LedgerAdjuster $ledger,
+    ) {}
 
     private function present(array $row): array
     {
@@ -295,13 +165,10 @@ class VoidTransactionService
     {
         $typeId = $transactionType === 'RELOAD' ? 0 : 1;
 
-        return EzkardTransaction::where('transaction_id', $transactionId)
-            ->where('trans_type_id', $typeId)
-            ->orderByDesc('timestamp')
-            ->get()
+        return $this->rows->cardLedgerTransactions($transactionId, $typeId)
             ->map(function (EzkardTransaction $t) use ($transactionType) {
                 $ezkard = EzkardAccount::find($t->ezkard_id);
-                $customer = $this->customerByEzkardId($t->ezkard_id);
+                $customer = $this->rows->customerByEzkardId($t->ezkard_id);
 
                 return [
                     'transaction_id' => $t->transaction_id,
@@ -340,12 +207,12 @@ class VoidTransactionService
             throw ValidationException::withMessages(['amount' => ['Insufficient customer balance.']]);
         }
 
-        $customer = $this->customerByEzkardId($ezkard->id);
+        $customer = $this->rows->customerByEzkardId($ezkard->id);
 
         DB::connection('mysuncash')->transaction(function () use ($transaction, $ezkard, $customer, $isReload, $amount) {
             $transaction->update(['trans_status_id' => 1]);
 
-            $this->adjustCardBalance(
+            $this->ledger->adjustCardBalance(
                 $ezkard->id,
                 $isReload ? 'less' : 'add',
                 $amount,
@@ -355,7 +222,7 @@ class VoidTransactionService
                 $transaction->id,
             );
 
-            $this->logCustomerHistory($customer, $ezkard->id, $this->nextTransactionId(), 'VoidTransaction', 'ADJUSTMENT', ($isReload ? 'Void Reload' : 'Void Sale')." ({$transaction->transaction_id})", $amount, $isReload ? 'DEBIT' : 'CREDIT');
+            $this->ledger->logCustomerHistory($customer, $ezkard->id, $this->ledger->nextTransactionId(), 'VoidTransaction', 'ADJUSTMENT', ($isReload ? 'Void Reload' : 'Void Sale')." ({$transaction->transaction_id})", $amount, $isReload ? 'DEBIT' : 'CREDIT');
         });
 
         return ['message' => 'Transaction has been voided successfully.'];
@@ -363,20 +230,9 @@ class VoidTransactionService
 
     // ── MONEY_TRANSFER ───────────────────────────────────────────────────────
 
-    private function moneyTransferRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('cashout_transaction_detailsv3 as c', 'c.cashout_id', '=', 'w.transaction_id')
-            ->leftJoin('cashout_transactionsv3 as cr', 'cr.id', '=', 'w.transaction_id')
-            ->where('w.transaction_type', 'MONEY_TRANSFER')
-            ->where('w.transaction_id', $transactionId)
-            ->select('c.*', 'w.merchant_id', 'w.amount', 'w.status as webpos_status', 'w.transaction_date', 'w.terminal_id', 'w.terminal_user_id', 'cr.cashout_reference')
-            ->first();
-    }
-
     private function searchMoneyTransfer(string $transactionId): array
     {
-        $r = $this->moneyTransferRow($transactionId);
+        $r = $this->rows->moneyTransferRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -398,7 +254,7 @@ class VoidTransactionService
      */
     private function voidMoneyTransfer(string $transactionId): array
     {
-        $r = $this->moneyTransferRow($transactionId);
+        $r = $this->rows->moneyTransferRow($transactionId);
         if (! $r) {
             throw ValidationException::withMessages(['id' => ['Transaction not found.']]);
         }
@@ -411,16 +267,16 @@ class VoidTransactionService
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $amount) {
             if (filled($r->cashout_reference)) {
                 // Path A — cash pickup: reverses merchant/float prefund only, no customer card touched.
-                $this->adjustClientBalance((int) $r->merchant_id, 'prefund', 'add', $amount, 46, 'Void Generate Cashout Code (debit)', $transactionId);
-                $this->adjustClientBalance(self::FLOAT_CLIENT_ID, 'prefund', 'less', $amount, 45, 'Void Generate Cashout Code (credit)', $transactionId);
+                $this->ledger->adjustClientBalance((int) $r->merchant_id, 'prefund', 'add', $amount, 46, 'Void Generate Cashout Code (debit)', $transactionId);
+                $this->ledger->adjustClientBalance(self::FLOAT_CLIENT_ID, 'prefund', 'less', $amount, 45, 'Void Generate Cashout Code (credit)', $transactionId);
             } else {
                 // Path B — credit to wallet: reverses the customer's card credit.
                 $customer = Customer::where('mobile', $r->bene_mobile)->first();
                 if (! $customer || ! $customer->ezkard_account_id) {
                     throw ValidationException::withMessages(['id' => ['Invalid customer record.']]);
                 }
-                $this->adjustCardBalance($customer->ezkard_account_id, 'less', $amount, 18, 'Money Transfer - Credit - VOIDED', (int) $r->merchant_id, $transactionId);
-                $this->adjustClientBalance((int) $r->merchant_id, 'prefund', 'add', $amount, 18, 'Void Money Transfer - Debit', $transactionId);
+                $this->ledger->adjustCardBalance($customer->ezkard_account_id, 'less', $amount, 18, 'Money Transfer - Credit - VOIDED', (int) $r->merchant_id, $transactionId);
+                $this->ledger->adjustClientBalance((int) $r->merchant_id, 'prefund', 'add', $amount, 18, 'Void Money Transfer - Debit', $transactionId);
             }
 
             WebposTransaction::where('transaction_type', 'MONEY_TRANSFER')->where('transaction_id', $transactionId)->update(['status' => 1]);
@@ -434,20 +290,9 @@ class VoidTransactionService
 
     // ── PHONE2PHONE ──────────────────────────────────────────────────────────
 
-    private function phoneToPhoneRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('ezkard_transactions as et')
-            ->leftJoin('customers as c', 'c.ezkard_account_id', '=', 'et.ezkard_id')
-            ->leftJoin('customer_transaction_histories as cth', 'cth.description', '=', 'et.description')
-            ->where('et.transaction_id', $transactionId)
-            ->where('et.trans_type_id', 16)
-            ->select('et.*', 'c.id as customer_id', 'c.first_name', 'c.last_name', 'c.mobile', 'c.ezkard_account_id', 'cth.transaction_reference', 'cth.transaction_fee', 'cth.vat')
-            ->first();
-    }
-
     private function searchPhoneToPhone(string $transactionId): array
     {
-        $r = $this->phoneToPhoneRow($transactionId);
+        $r = $this->rows->phoneToPhoneRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -469,27 +314,27 @@ class VoidTransactionService
      */
     private function voidPhoneToPhone(string $transactionId): array
     {
-        $r = $this->phoneToPhoneRow($transactionId);
+        $r = $this->rows->phoneToPhoneRow($transactionId);
         if (! $r || (int) $r->trans_status_id === 1) {
             throw ValidationException::withMessages(['id' => ['Unable to void transaction.']]);
         }
 
         $totalAmount = (float) $r->amount + (float) ($r->transaction_fee ?? 0) + (float) ($r->vat ?? 0);
         $receiverTransactionId = $r->reference_id;
-        $receiver = $receiverTransactionId ? $this->phoneToPhoneReceiverRow((string) $receiverTransactionId) : null;
+        $receiver = $receiverTransactionId ? $this->rows->phoneToPhoneReceiverRow((string) $receiverTransactionId) : null;
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $totalAmount, $receiver, $receiverTransactionId) {
             // Refund the sender.
-            $senderCustomer = $this->customerByEzkardId($r->ezkard_account_id);
-            $this->adjustCardBalance($r->ezkard_account_id, 'add', $totalAmount, 17, $r->description.' - REFUND', null, $r->transaction_reference);
-            $this->logCustomerHistory($senderCustomer, $r->ezkard_account_id, (string) $r->transaction_reference, 'PHONE2PHONE', 'MONEYSENT', $r->description.' - REFUND', $totalAmount, 'CREDIT');
+            $senderCustomer = $this->rows->customerByEzkardId($r->ezkard_account_id);
+            $this->ledger->adjustCardBalance($r->ezkard_account_id, 'add', $totalAmount, 17, $r->description.' - REFUND', null, $r->transaction_reference);
+            $this->ledger->logCustomerHistory($senderCustomer, $r->ezkard_account_id, (string) $r->transaction_reference, 'PHONE2PHONE', 'MONEYSENT', $r->description.' - REFUND', $totalAmount, 'CREDIT');
 
             // Claw back the receiver's credited leg, if found.
             if ($receiver) {
                 $receiverTotal = (float) $receiver->amount + (float) ($receiver->transaction_fee ?? 0) + (float) ($receiver->vat ?? 0);
-                $receiverCustomer = $this->customerByEzkardId($receiver->ezkard_account_id);
-                $this->adjustCardBalance($receiver->ezkard_account_id, 'less', $receiverTotal, 16, $receiver->description.' - REFUND', null, $receiver->transaction_reference);
-                $this->logCustomerHistory($receiverCustomer, $receiver->ezkard_account_id, (string) $receiver->transaction_reference, 'PHONE2PHONE', 'MONEYSENT', $receiver->description.' - REFUND', $receiverTotal, 'DEBIT');
+                $receiverCustomer = $this->rows->customerByEzkardId($receiver->ezkard_account_id);
+                $this->ledger->adjustCardBalance($receiver->ezkard_account_id, 'less', $receiverTotal, 16, $receiver->description.' - REFUND', null, $receiver->transaction_reference);
+                $this->ledger->logCustomerHistory($receiverCustomer, $receiver->ezkard_account_id, (string) $receiver->transaction_reference, 'PHONE2PHONE', 'MONEYSENT', $receiver->description.' - REFUND', $receiverTotal, 'DEBIT');
                 EzkardTransaction::where('transaction_id', $receiverTransactionId)->where('trans_type_id', 17)->update(['trans_status_id' => 1]);
             }
 
@@ -499,34 +344,11 @@ class VoidTransactionService
         return ['message' => 'Transaction has been voided successfully.'];
     }
 
-    private function phoneToPhoneReceiverRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('ezkard_transactions as et')
-            ->leftJoin('customers as c', 'c.ezkard_account_id', '=', 'et.ezkard_id')
-            ->leftJoin('customer_transaction_histories as cth', 'cth.description', '=', 'et.description')
-            ->where('et.transaction_id', $transactionId)
-            ->where('et.trans_type_id', 17)
-            ->where('et.trans_status_id', '!=', 1)
-            ->select('et.*', 'c.ezkard_account_id', 'cth.transaction_reference', 'cth.transaction_fee', 'cth.vat')
-            ->first();
-    }
-
     // ── PHONE2STORE ──────────────────────────────────────────────────────────
-
-    private function phoneToStoreRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('ezkard_transactions as et')
-            ->leftJoin('customers as c', 'c.ezkard_account_id', '=', 'et.ezkard_id')
-            ->leftJoin('customer_transaction_histories as cth', 'cth.description', '=', 'et.description')
-            ->where('et.transaction_id', $transactionId)
-            ->where('et.trans_type_id', 47)
-            ->select('et.*', 'c.first_name', 'c.last_name', 'c.mobile', 'c.ezkard_account_id', 'cth.transaction_reference', 'cth.transaction_fee', 'cth.vat')
-            ->first();
-    }
 
     private function searchPhoneToStore(string $transactionId): array
     {
-        $r = $this->phoneToStoreRow($transactionId);
+        $r = $this->rows->phoneToStoreRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -548,17 +370,17 @@ class VoidTransactionService
      */
     private function voidPhoneToStore(string $transactionId): array
     {
-        $r = $this->phoneToStoreRow($transactionId);
+        $r = $this->rows->phoneToStoreRow($transactionId);
         if (! $r || (int) $r->trans_status_id === 1) {
             throw ValidationException::withMessages(['id' => ['Unable to void transaction.']]);
         }
 
         $totalAmount = (float) $r->amount + (float) ($r->transaction_fee ?? 0) + (float) ($r->vat ?? 0);
-        $customer = $this->customerByEzkardId($r->ezkard_account_id);
+        $customer = $this->rows->customerByEzkardId($r->ezkard_account_id);
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $totalAmount, $customer) {
-            $this->adjustCardBalance($r->ezkard_account_id, 'add', $totalAmount, 50, $r->description.' - REFUND', null, $r->transaction_reference);
-            $this->logCustomerHistory($customer, $r->ezkard_account_id, (string) $r->transaction_reference, 'PHONE2STORE', 'MONEYSENT', $r->description.' - REFUND', $totalAmount, 'CREDIT');
+            $this->ledger->adjustCardBalance($r->ezkard_account_id, 'add', $totalAmount, 50, $r->description.' - REFUND', null, $r->transaction_reference);
+            $this->ledger->logCustomerHistory($customer, $r->ezkard_account_id, (string) $r->transaction_reference, 'PHONE2STORE', 'MONEYSENT', $r->description.' - REFUND', $totalAmount, 'CREDIT');
             EzkardTransaction::where('transaction_id', $transactionId)->where('trans_type_id', 47)->update(['trans_status_id' => 1]);
         });
 
@@ -567,20 +389,9 @@ class VoidTransactionService
 
     // ── CASHOUT_CODE ─────────────────────────────────────────────────────────
 
-    private function cashoutCodeRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('cashout_transaction_detailsv3 as c', 'c.id', '=', 'w.transaction_id')
-            ->leftJoin('cashout_transactionsv3 as cr', 'cr.id', '=', 'w.transaction_id')
-            ->where('w.transaction_type', 'CASHOUT_CODE')
-            ->where('w.transaction_id', $transactionId)
-            ->select('c.*', 'w.merchant_id', 'w.amount', 'w.status as webpos_status', 'w.transaction_date', 'w.terminal_id', 'w.terminal_user_id', 'cr.cashout_reference')
-            ->first();
-    }
-
     private function searchCashoutCode(string $transactionId): array
     {
-        $r = $this->cashoutCodeRow($transactionId);
+        $r = $this->rows->cashoutCodeRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -602,7 +413,7 @@ class VoidTransactionService
      */
     private function voidCashoutCode(string $transactionId): array
     {
-        $r = $this->cashoutCodeRow($transactionId);
+        $r = $this->rows->cashoutCodeRow($transactionId);
         if (! $r) {
             throw ValidationException::withMessages(['id' => ['Transaction not found.']]);
         }
@@ -613,8 +424,8 @@ class VoidTransactionService
         $amount = (float) $r->amount;
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $amount) {
-            $this->adjustClientBalance(self::FLOAT_CLIENT_ID, 'prefund', 'add', $amount, 49, 'Void Cashout by Code - Redemption (debit)', $transactionId);
-            $this->adjustClientBalance((int) $r->merchant_id, 'settlement', 'less', $amount, 50, 'Void Cashout by Code - Redemption (credit)', $transactionId);
+            $this->ledger->adjustClientBalance(self::FLOAT_CLIENT_ID, 'prefund', 'add', $amount, 49, 'Void Cashout by Code - Redemption (debit)', $transactionId);
+            $this->ledger->adjustClientBalance((int) $r->merchant_id, 'settlement', 'less', $amount, 50, 'Void Cashout by Code - Redemption (credit)', $transactionId);
             WebposTransaction::where('transaction_type', 'CASHOUT_CODE')->where('transaction_id', $transactionId)->update(['status' => 1]);
         });
 
@@ -623,22 +434,9 @@ class VoidTransactionService
 
     // ── CASHOUT_MOBILE ───────────────────────────────────────────────────────
 
-    private function cashoutMobileRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('client_transactions as c', 'c.ref_trans_id', '=', 'w.transaction_id')
-            ->leftJoin('ezkard_transactions as e', 'e.transaction_id', '=', 'c.ref_trans_id')
-            ->leftJoin('customers as cs', 'cs.ezkard_account_id', '=', 'e.ezkard_id')
-            ->where('w.transaction_type', 'CASHOUT_MOBILE')
-            ->where('w.transaction_id', $transactionId)
-            ->where('e.trans_type_id', 20)
-            ->select('w.merchant_id', 'w.amount', 'w.fee_amount', 'w.status as webpos_status', 'w.transaction_date', 'w.terminal_id', 'w.terminal_user_id', 'e.ezkard_id', 'cs.id as customer_id', 'cs.first_name', 'cs.last_name', 'cs.mobile')
-            ->first();
-    }
-
     private function searchCashoutMobile(string $transactionId): array
     {
-        $r = $this->cashoutMobileRow($transactionId);
+        $r = $this->rows->cashoutMobileRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -660,7 +458,7 @@ class VoidTransactionService
      */
     private function voidCashoutMobile(string $transactionId): array
     {
-        $r = $this->cashoutMobileRow($transactionId);
+        $r = $this->rows->cashoutMobileRow($transactionId);
         if (! $r) {
             throw ValidationException::withMessages(['id' => ['Transaction not found.']]);
         }
@@ -672,9 +470,9 @@ class VoidTransactionService
         $customer = $r->customer_id ? Customer::find($r->customer_id) : null;
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $totalAmount, $customer) {
-            $this->adjustCardBalance($r->ezkard_id, 'add', $totalAmount, 21, 'Void POS Cash Out by Mobile', (int) $r->merchant_id, $transactionId);
-            $this->adjustClientBalance((int) $r->merchant_id, 'settlement', 'add', $totalAmount, 21, 'Void POS Cash Out by Mobile', $transactionId);
-            $this->logCustomerHistory($customer, $r->ezkard_id, $transactionId, 'CASHOUT_MOBILE', 'CASHOUT', 'Void POS Cash Out by Mobile', $totalAmount, 'CREDIT');
+            $this->ledger->adjustCardBalance($r->ezkard_id, 'add', $totalAmount, 21, 'Void POS Cash Out by Mobile', (int) $r->merchant_id, $transactionId);
+            $this->ledger->adjustClientBalance((int) $r->merchant_id, 'settlement', 'add', $totalAmount, 21, 'Void POS Cash Out by Mobile', $transactionId);
+            $this->ledger->logCustomerHistory($customer, $r->ezkard_id, $transactionId, 'CASHOUT_MOBILE', 'CASHOUT', 'Void POS Cash Out by Mobile', $totalAmount, 'CREDIT');
             EzkardTransaction::where('transaction_id', $transactionId)->where('trans_type_id', 20)->update(['trans_status_id' => 1]);
             WebposTransaction::where('transaction_type', 'CASHOUT_MOBILE')->where('transaction_id', $transactionId)->update(['status' => 1]);
         });
@@ -756,12 +554,12 @@ class VoidTransactionService
         $customer = $r->customer_id ? Customer::find($r->customer_id) : null;
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $cashoutCode, $cashout, $amount, $customer) {
-            $this->adjustCardBalance($r->ezkard_id, 'less', $amount, 50, $r->description.' - Voided', null, $transactionId);
-            $this->logCustomerHistory($customer, $r->ezkard_id, $transactionId, 'LOAD', 'LOAD', 'SunCash Load Via Cashout Code - Voided', $amount, 'DEBIT');
-            $this->adjustClientBalance(self::FLOAT_CLIENT_ID, 'prefund', 'add', $amount, 49, 'Cashout by Code - Redemption (debit) - Voided', $transactionId);
+            $this->ledger->adjustCardBalance($r->ezkard_id, 'less', $amount, 50, $r->description.' - Voided', null, $transactionId);
+            $this->ledger->logCustomerHistory($customer, $r->ezkard_id, $transactionId, 'LOAD', 'LOAD', 'SunCash Load Via Cashout Code - Voided', $amount, 'DEBIT');
+            $this->ledger->adjustClientBalance(self::FLOAT_CLIENT_ID, 'prefund', 'add', $amount, 49, 'Cashout by Code - Redemption (debit) - Voided', $transactionId);
 
             if ((int) $cashout->status === 1) {
-                $this->adjustClientBalance(37, 'settlement', 'less', $amount, 50, 'Cashout by Code - Redemption (credit) - VOIDED', $transactionId);
+                $this->ledger->adjustClientBalance(37, 'settlement', 'less', $amount, 50, 'Cashout by Code - Redemption (credit) - VOIDED', $transactionId);
             }
 
             CashoutTransactionV3::where('cashout_reference', $cashoutCode)->update(['status' => 0]);
@@ -773,39 +571,9 @@ class VoidTransactionService
 
     // ── BUSINESS_BILLPAY / BUSINESS_BILLPAY_STORE ───────────────────────────
 
-    private function businessBillpayRow(string $transactionId, bool $store): ?object
-    {
-        if (! $store) {
-            $link = DB::connection('mysuncash')->table('ezkard_transactions')
-                ->where('transaction_id', $transactionId)->where('trans_type_id', 63)->first();
-            if (! $link) {
-                return null;
-            }
-            $transactionId = (string) $link->reference_id;
-        }
-
-        return DB::connection('mysuncash')->table('business_bill_transaction as bbt')
-            ->leftJoin('webpos_transaction as w', function ($join) {
-                $join->on('w.transaction_id', '=', 'bbt.transaction_id')->where('w.transaction_type', 'BILLPAY');
-            })
-            ->where('bbt.transaction_id', (int) $transactionId)
-            ->select('bbt.*', 'w.merchant_id as w_merchant_id')
-            ->first();
-    }
-
-    private function businessBillpayStatusLabel(?string $status): string
-    {
-        return match ($status) {
-            'P' => 'Processed',
-            'A', 'S' => 'Pending',
-            'V' => 'Voided',
-            default => 'Unknown',
-        };
-    }
-
     private function searchBusinessBillpay(string $transactionId, bool $store): array
     {
-        $r = $this->businessBillpayRow($transactionId, $store);
+        $r = $this->rows->businessBillpayRow($transactionId, $store);
         if (! $r) {
             return [];
         }
@@ -819,7 +587,7 @@ class VoidTransactionService
             'amount' => (float) $r->amount,
             'timestamp' => $r->transaction_date,
             'status' => $r->status === 'V' ? 'voided' : 'active',
-            'status_label' => $this->businessBillpayStatusLabel($r->status),
+            'status_label' => $this->rows->businessBillpayStatusLabel($r->status),
         ]];
     }
 
@@ -857,17 +625,17 @@ class VoidTransactionService
         DB::connection('mysuncash')->transaction(function () use ($row, $store, $amount, $status, $webposMerchantId, $ezkardId) {
             if ($store) {
                 // Credits the STORE merchant's own prefund (not the customer's card).
-                $this->adjustClientBalance((int) $webposMerchantId, 'prefund', 'add', $amount, 4, 'Billspay Void Credit', $row->transaction_id);
+                $this->ledger->adjustClientBalance((int) $webposMerchantId, 'prefund', 'add', $amount, 4, 'Billspay Void Credit', $row->transaction_id);
             } else {
-                $this->adjustCardBalance($ezkardId, 'add', $amount, 62, $row->reference_number.' - VOIDED', (int) $row->merchant_client_id, $row->transaction_id);
-                $customer = $this->customerByEzkardId($ezkardId);
-                $this->logCustomerHistory($customer, $ezkardId, (string) $row->transaction_id, 'BUSINESS_BILLPAY', 'BILLPAY', $row->reference_number.' - VOIDED', $amount, 'CREDIT');
+                $this->ledger->adjustCardBalance($ezkardId, 'add', $amount, 62, $row->reference_number.' - VOIDED', (int) $row->merchant_client_id, $row->transaction_id);
+                $customer = $this->rows->customerByEzkardId($ezkardId);
+                $this->ledger->logCustomerHistory($customer, $ezkardId, (string) $row->transaction_id, 'BUSINESS_BILLPAY', 'BILLPAY', $row->reference_number.' - VOIDED', $amount, 'CREDIT');
             }
 
             if ($status === BusinessBillTransaction::STATUS_PROCESSED) {
-                $this->adjustClientBalance((int) $row->merchant_client_id, 'prefund', 'less', $amount, 24, 'Business Billpay Debit', $row->transaction_id);
+                $this->ledger->adjustClientBalance((int) $row->merchant_client_id, 'prefund', 'less', $amount, 24, 'Business Billpay Debit', $row->transaction_id);
             } elseif (in_array($status, [BusinessBillTransaction::STATUS_PENDING, BusinessBillTransaction::STATUS_SCHEDULED], true)) {
-                $this->adjustClientBalance(self::BUSINESSBP_CLIENT_ID, 'prefund', 'less', $amount, 24, 'Business Billpay Void Credit', $row->transaction_id);
+                $this->ledger->adjustClientBalance(self::BUSINESSBP_CLIENT_ID, 'prefund', 'less', $amount, 24, 'Business Billpay Void Credit', $row->transaction_id);
             }
 
             $row->update(['status' => BusinessBillTransaction::STATUS_VOIDED, 'cancel_note' => '', 'cancellation_date' => now()]);
@@ -882,16 +650,9 @@ class VoidTransactionService
 
     // ── CUSTOMERSPAYMENT ─────────────────────────────────────────────────────
 
-    private function customersPaymentLink(string $transactionId): ?int
-    {
-        $referenceId = DB::connection('mysuncash')->table('ezkard_transactions')->where('transaction_id', $transactionId)->value('reference_id');
-
-        return $referenceId !== null ? (int) $referenceId : null;
-    }
-
     private function searchCustomersPayment(string $transactionId): array
     {
-        $lookupId = $this->customersPaymentLink($transactionId);
+        $lookupId = $this->rows->customersPaymentLink($transactionId);
         if ($lookupId === null) {
             return [];
         }
@@ -910,7 +671,7 @@ class VoidTransactionService
             'amount' => (float) $row->amount,
             'timestamp' => $row->transaction_date,
             'status' => $row->status === 'V' ? 'voided' : 'active',
-            'status_label' => $this->businessBillpayStatusLabel($row->status),
+            'status_label' => $this->rows->businessBillpayStatusLabel($row->status),
         ]];
     }
 
@@ -929,7 +690,7 @@ class VoidTransactionService
      */
     private function voidCustomersPayment(string $transactionId): array
     {
-        $lookupId = $this->customersPaymentLink($transactionId);
+        $lookupId = $this->rows->customersPaymentLink($transactionId);
         if ($lookupId === null) {
             throw ValidationException::withMessages(['id' => ["Can't find Transaction."]]);
         }
@@ -949,10 +710,10 @@ class VoidTransactionService
         $totalAmount = $amount - $fee;
 
         DB::connection('mysuncash')->transaction(function () use ($row, $payee, $amount, $fee, $totalAmount, $transactionId) {
-            $this->adjustCardBalance($payee->ezkard_account_id, 'add', $amount, 25, 'Void - Customers Payment', self::BUSINESSBP_CLIENT_ID, $row->transaction_id);
+            $this->ledger->adjustCardBalance($payee->ezkard_account_id, 'add', $amount, 25, 'Void - Customers Payment', self::BUSINESSBP_CLIENT_ID, $row->transaction_id);
             $row->update(['status' => BusinessBillTransaction::STATUS_VOIDED, 'cancel_note' => '', 'cancellation_date' => now()]);
-            $this->adjustClientBalance(self::BUSINESSBP_CLIENT_ID, 'prefund', 'less', $fee, 24, 'Business Billpay Debit', $row->transaction_id);
-            $this->adjustCardBalance($payee->ezkard_account_id, 'less', $totalAmount, 24, 'Void - Customers Payment', self::BUSINESSBP_CLIENT_ID, $row->transaction_id);
+            $this->ledger->adjustClientBalance(self::BUSINESSBP_CLIENT_ID, 'prefund', 'less', $fee, 24, 'Business Billpay Debit', $row->transaction_id);
+            $this->ledger->adjustCardBalance($payee->ezkard_account_id, 'less', $totalAmount, 24, 'Void - Customers Payment', self::BUSINESSBP_CLIENT_ID, $row->transaction_id);
             EzkardTransaction::where('transaction_id', $transactionId)->update(['trans_status_id' => 1]);
         });
 
@@ -961,20 +722,9 @@ class VoidTransactionService
 
     // ── DONATION ─────────────────────────────────────────────────────────────
 
-    private function donationRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('donate_transactions as d', 'd.settlement_transaction_id', '=', 'w.transaction_id')
-            ->leftJoin('clients as c', 'd.charity_code', '=', 'c.id')
-            ->where('w.transaction_type', 'DONATION')
-            ->where('w.transaction_id', $transactionId)
-            ->select('d.*', 'c.legal_name', 'w.status as webpos_status', 'w.transaction_date', 'w.merchant_id', 'w.terminal_id', 'w.terminal_user_id')
-            ->first();
-    }
-
     private function searchDonation(string $transactionId): array
     {
-        $r = $this->donationRow($transactionId);
+        $r = $this->rows->donationRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -996,7 +746,7 @@ class VoidTransactionService
      */
     private function voidDonation(string $transactionId): array
     {
-        $r = $this->donationRow($transactionId);
+        $r = $this->rows->donationRow($transactionId);
         if (! $r) {
             throw ValidationException::withMessages(['id' => ['Transaction not found.']]);
         }
@@ -1007,8 +757,8 @@ class VoidTransactionService
         $amount = (float) $r->donation_amount;
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $amount) {
-            $this->adjustClientBalance((int) $r->merchant_id, 'prefund', 'add', $amount, 36, 'Void Donation to '.$r->legal_name, $transactionId);
-            $this->adjustClientBalance((int) $r->charity_code, 'settlement', 'less', $amount, 35, 'Void Donation from '.$r->donor_name.' ('.$r->donor_mobile.')', $transactionId);
+            $this->ledger->adjustClientBalance((int) $r->merchant_id, 'prefund', 'add', $amount, 36, 'Void Donation to '.$r->legal_name, $transactionId);
+            $this->ledger->adjustClientBalance((int) $r->charity_code, 'settlement', 'less', $amount, 35, 'Void Donation from '.$r->donor_name.' ('.$r->donor_mobile.')', $transactionId);
             WebposTransaction::where('transaction_type', 'DONATION')->where('transaction_id', $transactionId)->update(['status' => 1]);
         });
 
@@ -1017,19 +767,9 @@ class VoidTransactionService
 
     // ── CHECKCASHING ─────────────────────────────────────────────────────────
 
-    private function checkCashingRow(string $transactionId): ?object
-    {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('check_cashing_transaction as c', 'c.transaction_id', '=', 'w.transaction_id')
-            ->where('w.transaction_type', 'CHECKCASHING')
-            ->where('w.transaction_id', $transactionId)
-            ->select('w.merchant_id', 'w.amount', 'w.status as webpos_status', 'w.transaction_date', 'c.customer_name', 'c.mobile')
-            ->first();
-    }
-
     private function searchCheckCashing(string $transactionId): array
     {
-        $r = $this->checkCashingRow($transactionId);
+        $r = $this->rows->checkCashingRow($transactionId);
         if (! $r) {
             return [];
         }
@@ -1051,7 +791,7 @@ class VoidTransactionService
      */
     private function voidCheckCashing(string $transactionId): array
     {
-        $r = $this->checkCashingRow($transactionId);
+        $r = $this->rows->checkCashingRow($transactionId);
         if (! $r) {
             throw ValidationException::withMessages(['id' => ['Transaction not found.']]);
         }
@@ -1062,8 +802,8 @@ class VoidTransactionService
         $amount = (float) $r->amount;
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $amount) {
-            $this->adjustClientBalance(self::CHECKCASHING_CLIENT_ID, 'prefund', 'add', $amount, 53, 'Void CHECKCASHING - Debit', $transactionId);
-            $this->adjustClientBalance((int) $r->merchant_id, 'settlement', 'less', $amount, 54, 'Void CHECKCASHING - Credit', $transactionId);
+            $this->ledger->adjustClientBalance(self::CHECKCASHING_CLIENT_ID, 'prefund', 'add', $amount, 53, 'Void CHECKCASHING - Debit', $transactionId);
+            $this->ledger->adjustClientBalance((int) $r->merchant_id, 'settlement', 'less', $amount, 54, 'Void CHECKCASHING - Credit', $transactionId);
             WebposTransaction::where('transaction_type', 'CHECKCASHING')->where('transaction_id', $transactionId)->update(['status' => 1]);
         });
 
@@ -1128,11 +868,11 @@ class VoidTransactionService
         }
 
         $totalAmount = (float) $r->amount + (float) ($r->transaction_fee ?? 0) + (float) ($r->vat ?? 0);
-        $customer = $this->customerByEzkardId($r->ezkard_account_id);
+        $customer = $this->rows->customerByEzkardId($r->ezkard_account_id);
 
         DB::connection('mysuncash')->transaction(function () use ($r, $transactionId, $type, $totalAmount, $customer) {
-            $this->adjustCardBalance($r->ezkard_account_id, 'add', $totalAmount, 59, $r->description.' - REFUND', null, $r->ref_id);
-            $this->logCustomerHistory($customer, $r->ezkard_account_id, (string) $r->ref_id, $type, 'VOUCHER', $r->description.' - REFUND', $totalAmount, 'CREDIT');
+            $this->ledger->adjustCardBalance($r->ezkard_account_id, 'add', $totalAmount, 59, $r->description.' - REFUND', null, $r->ref_id);
+            $this->ledger->logCustomerHistory($customer, $r->ezkard_account_id, (string) $r->ref_id, $type, 'VOUCHER', $r->description.' - REFUND', $totalAmount, 'CREDIT');
             EzkardTransaction::where('transaction_id', $transactionId)->where('trans_type_id', 58)->update(['trans_status_id' => 1]);
         });
 

@@ -71,6 +71,7 @@ use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
+use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Transactions\VoidTransactionController;
 use App\Http\Controllers\Api\ThemePreferenceController;
 use App\Http\Controllers\Api\UserActivityController;
@@ -97,6 +98,13 @@ Route::prefix('customer')->group(function () {
 Route::get('/project-settings', [ProjectSettingController::class, 'show']);
 Route::get('/layout-settings', [LayoutSettingController::class, 'show']);
 Route::get('/landing-page', [PublicLandingPageController::class, 'show']);
+
+// The link texted to a customer via Resend Transaction Receipt — signed
+// (not Sanctum-protected), since the recipient is a customer's phone, not
+// a logged-in admin.
+Route::get('/receipts/{transactionType}/{transactionId}', [TransactionReceiptController::class, 'view'])
+    ->name('receipts.show')
+    ->middleware('signed');
 
 // ── Protected routes (valid Sanctum token required) ────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -384,6 +392,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('void-transaction')->group(function () {
         Route::post('/search', [VoidTransactionController::class, 'search']);
         Route::post('/void', [VoidTransactionController::class, 'void']);
+    });
+
+    Route::prefix('resend-receipt')->group(function () {
+        Route::post('/search', [TransactionReceiptController::class, 'search']);
+        Route::get('/generate', [TransactionReceiptController::class, 'generate']);
+        Route::post('/send', [TransactionReceiptController::class, 'send']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
