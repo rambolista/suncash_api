@@ -13,8 +13,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskReplenishReportController extends Controller
 {
-    /** Consolidated under the "Kiosk > Reports" tabbed page (Zout/Replenish/Transaction tabs share one permission gate). */
+    /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
     private const MODULE_PATH = '/kiosk/reports';
+
+    private const TAB_KEY = 'replenish';
 
     private const LIST_COLUMNS = [
         ['key' => 'replenishment_date', 'label' => 'Replenishment Date'],
@@ -46,7 +48,7 @@ class KioskReplenishReportController extends Controller
 
     private function forbidden(Request $request, string $action): ?JsonResponse
     {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
+        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, self::TAB_KEY, $action)
             ? null
             : response()->json(['message' => 'Forbidden.'], 403);
     }
@@ -153,7 +155,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportList(Request $request): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'can_export')) {
             return $response;
         }
 
@@ -165,7 +167,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportMeter(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'can_export')) {
             return $response;
         }
 
@@ -180,7 +182,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportAddCash(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'can_export')) {
             return $response;
         }
 
@@ -195,7 +197,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportClearAcceptor(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbidden($request, 'can_export')) {
             return $response;
         }
 

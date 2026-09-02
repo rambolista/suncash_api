@@ -137,34 +137,10 @@ class MenuController extends Controller
         return response()->json($menu);
     }
 
-    /**
-     * DELETE /api/access-management/menus/{menu}
-     * Delete a menu item (children cascade via FK).
-     */
-    public function destroy(Request $request, Menu $menu): JsonResponse
-    {
-        $user = $request->user();
-        if (! $this->userHasPermission($user, '/apps/access-management', 'can_delete')) {
-            return response()->json(['message' => 'Forbidden.'], 403);
-        }
-
-        $this->notifyMenuChange($request, $menu, 'deleted');
-        $before = $menu->getAttributes();
-        $menu->delete();
-
-        ActivityLog::recordDeleted($request->user(), 'Menus', $menu, $before, ['label', 'slug'], $request);
-
-        return response()->json(['message' => 'Menu deleted.']);
-    }
-
     private function notifyMenuChange(Request $request, Menu $menu, string $action): void
     {
         $actor = $request->user();
-        $title = match ($action) {
-            'created' => 'Menu created',
-            'deleted' => 'Menu deleted',
-            default => 'Menu updated',
-        };
+        $title = $action === 'created' ? 'Menu created' : 'Menu updated';
 
         User::query()
             ->where('status', 'active')
@@ -174,7 +150,7 @@ class MenuController extends Controller
                     message: sprintf('"%s" was %s by %s.', $menu->label, $action, $actor->name),
                     eventType: 'menu.' . $action,
                     icon: 'menu-2',
-                    color: $action === 'deleted' ? 'danger' : ($action === 'created' ? 'success' : 'primary'),
+                    color: $action === 'created' ? 'success' : 'primary',
                     actionUrl: '/apps/access-management',
                     metadata: ['menu_id' => $menu->id, 'actor_id' => $actor->id],
                 ));

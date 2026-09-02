@@ -517,7 +517,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('access-management')->group(function () {
         Route::get('/menu-icons', [MenuIconController::class, 'index']);
-        Route::apiResource('/menus', MenuController::class);
+        Route::apiResource('/menus', MenuController::class)->except(['destroy']);
         Route::apiResource('/customer-menus', CustomerMenuController::class);
         Route::apiResource('/customers', CustomerController::class);
 
