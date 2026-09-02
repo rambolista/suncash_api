@@ -37,4 +37,27 @@ class LegacyCredentialCipher
     {
         return md5(uniqid((string) time(), true)) . md5(sha1((string) microtime(true)));
     }
+
+    /** Reverses encrypt() — needs the same per-user key half from `user_keys.key`. */
+    public static function decrypt(string $encrypted, string $userKey): ?string
+    {
+        $key = self::KEY_PREFIX . $userKey;
+        $raw = base64_decode($encrypted, true);
+        if ($raw === false) {
+            return null;
+        }
+
+        $ivLength = openssl_cipher_iv_length(self::CIPHER);
+        $hmacLength = 32;
+        if (strlen($raw) <= $ivLength + $hmacLength) {
+            return null;
+        }
+
+        $iv = substr($raw, 0, $ivLength);
+        $ciphertextRaw = substr($raw, $ivLength + $hmacLength);
+
+        $plaintext = openssl_decrypt($ciphertextRaw, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv);
+
+        return $plaintext === false ? null : $plaintext;
+    }
 }

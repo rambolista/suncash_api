@@ -45,7 +45,13 @@ use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\SetMainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
 use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
+use App\Http\Controllers\Api\Kiosk\KioskBankAccountController;
+use App\Http\Controllers\Api\Kiosk\KioskBranchController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
+use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
+use App\Http\Controllers\Api\Kiosk\KioskStatementController;
+use App\Http\Controllers\Api\Kiosk\KioskTerminalController;
+use App\Http\Controllers\Api\Kiosk\KioskUserController;
 use App\Http\Controllers\Api\Kyc\KycUpgradeController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
@@ -405,6 +411,47 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [KioskMonitoringController::class, 'index']);
         Route::post('/{id}/clear', [KioskMonitoringController::class, 'clear'])->whereNumber('id');
         Route::post('/{id}/acknowledge', [KioskMonitoringController::class, 'acknowledge'])->whereNumber('id');
+    });
+
+    Route::prefix('kiosk-management')->group(function () {
+        Route::get('/branches', [KioskBranchController::class, 'index']);
+        Route::get('/branches/merchants', [KioskBranchController::class, 'merchants']);
+        Route::post('/branches', [KioskBranchController::class, 'store']);
+        Route::delete('/branches/{id}', [KioskBranchController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('/branches/{branchId}/terminals', [KioskTerminalController::class, 'index'])->whereNumber('branchId');
+        Route::post('/terminals', [KioskTerminalController::class, 'store']);
+        Route::put('/terminals/{id}', [KioskTerminalController::class, 'update'])->whereNumber('id');
+        Route::put('/terminals/{id}/commission', [KioskTerminalController::class, 'updateCommission'])->whereNumber('id');
+        Route::delete('/terminals/{id}', [KioskTerminalController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('/branches/{branchId}/partners', [KioskPartnerController::class, 'index'])->whereNumber('branchId');
+        Route::post('/branches/{branchId}/partners', [KioskPartnerController::class, 'store'])->whereNumber('branchId');
+        Route::put('/partners/{id}', [KioskPartnerController::class, 'update'])->whereNumber('id');
+        Route::delete('/partners/{id}', [KioskPartnerController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('/bank-accounts', [KioskBankAccountController::class, 'index']);
+        Route::get('/bank-accounts/{id}', [KioskBankAccountController::class, 'show'])->whereNumber('id');
+        Route::get('/bank-accounts/banks/{bankId}/branches', [KioskBankAccountController::class, 'bankBranches'])->whereNumber('bankId');
+        Route::post('/bank-accounts', [KioskBankAccountController::class, 'store']);
+        Route::put('/bank-accounts/{id}', [KioskBankAccountController::class, 'update'])->whereNumber('id');
+        Route::delete('/bank-accounts/{id}', [KioskBankAccountController::class, 'destroy'])->whereNumber('id');
+    });
+
+    Route::prefix('kiosk-statement')->group(function () {
+        Route::get('/', [KioskStatementController::class, 'index']);
+        Route::get('/terminals', [KioskStatementController::class, 'terminals']);
+        Route::get('/export', [KioskStatementController::class, 'exportBalances']);
+        Route::get('/{terminalId}/ledger', [KioskStatementController::class, 'ledger'])->whereNumber('terminalId');
+        Route::get('/{terminalId}/ledger/export', [KioskStatementController::class, 'exportLedger'])->whereNumber('terminalId');
+    });
+
+    Route::prefix('kiosk-users')->group(function () {
+        Route::get('/', [KioskUserController::class, 'index']);
+        Route::post('/', [KioskUserController::class, 'store']);
+        Route::put('/{type}/{id}', [KioskUserController::class, 'update'])->whereNumber('id');
+        Route::delete('/{id}', [KioskUserController::class, 'destroy'])->whereNumber('id');
+        Route::post('/{id}/reset-password', [KioskUserController::class, 'resetPassword'])->whereNumber('id');
     });
 
     Route::prefix('customer-bank-loads')->group(function () {

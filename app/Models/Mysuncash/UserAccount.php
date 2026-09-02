@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable([
     'first_name', 'last_name', 'user_type_id', 'user_reference', 'user_name', 'password', 'user_status_id',
     'user_id_create', 'user_id_modified', 'require_pw_change', 'pw_expiration', 'creation_date', 'modification_date',
-    'email_address', 'mobile_number',
+    'email_address', 'mobile_number', 'role', 'tp_user_reference',
 ])]
 #[Hidden(['password'])]
 class UserAccount extends Model
