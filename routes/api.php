@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\SetMainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
 use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
+use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
 use App\Http\Controllers\Api\Kyc\KycUpgradeController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
@@ -398,6 +399,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/search', [TransactionReceiptController::class, 'search']);
         Route::get('/generate', [TransactionReceiptController::class, 'generate']);
         Route::post('/send', [TransactionReceiptController::class, 'send']);
+    });
+
+    Route::prefix('kiosk-monitoring')->group(function () {
+        Route::get('/', [KioskMonitoringController::class, 'index']);
+        Route::post('/{id}/clear', [KioskMonitoringController::class, 'clear'])->whereNumber('id');
+        Route::post('/{id}/acknowledge', [KioskMonitoringController::class, 'acknowledge'])->whereNumber('id');
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
