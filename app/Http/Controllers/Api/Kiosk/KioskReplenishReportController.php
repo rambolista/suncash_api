@@ -13,7 +13,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskReplenishReportController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/replenish-reports';
+    /** Consolidated under the "Kiosk > Reports" tabbed page (Zout/Replenish/Transaction tabs share one permission gate). */
+    private const MODULE_PATH = '/kiosk/reports';
 
     private const LIST_COLUMNS = [
         ['key' => 'replenishment_date', 'label' => 'Replenishment Date'],

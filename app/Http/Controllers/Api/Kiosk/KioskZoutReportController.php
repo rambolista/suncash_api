@@ -14,7 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskZoutReportController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/zout-reports';
+    /** Consolidated under the "Kiosk > Reports" tabbed page (Zout/Replenish/Transaction tabs share one permission gate). */
+    private const MODULE_PATH = '/kiosk/reports';
 
     public const COLUMNS = [
         ['key' => 'kiosk_id', 'label' => 'Kiosk ID'],

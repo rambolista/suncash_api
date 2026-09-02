@@ -53,6 +53,7 @@ use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
 use App\Http\Controllers\Api\Kiosk\KioskReplenishReportController;
 use App\Http\Controllers\Api\Kiosk\KioskStatementController;
 use App\Http\Controllers\Api\Kiosk\KioskTerminalController;
+use App\Http\Controllers\Api\Kiosk\KioskTransactionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskUserController;
 use App\Http\Controllers\Api\Kiosk\KioskZoutReportController;
 use App\Http\Controllers\Api\Kyc\KycUpgradeController;
@@ -479,6 +480,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{terminalId}/add-cash/export', [KioskReplenishReportController::class, 'exportAddCash'])->whereNumber('terminalId');
         Route::get('/{terminalId}/clear-acceptor', [KioskReplenishReportController::class, 'clearAcceptor'])->whereNumber('terminalId');
         Route::get('/{terminalId}/clear-acceptor/export', [KioskReplenishReportController::class, 'exportClearAcceptor'])->whereNumber('terminalId');
+    });
+
+    Route::prefix('kiosk-transaction-reports')->group(function () {
+        Route::get('/', [KioskTransactionReportController::class, 'index']);
+        Route::get('/export', [KioskTransactionReportController::class, 'export']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
