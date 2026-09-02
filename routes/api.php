@@ -71,6 +71,7 @@ use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
+use App\Http\Controllers\Api\Transactions\VoidTransactionController;
 use App\Http\Controllers\Api\ThemePreferenceController;
 use App\Http\Controllers\Api\UserActivityController;
 use App\Http\Controllers\Api\UserProfileController;
@@ -378,6 +379,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/transactions', [CustomerSettlementController::class, 'transactions'])->whereNumber('id');
         Route::post('/{id}/approve', [CustomerSettlementController::class, 'approve'])->whereNumber('id');
         Route::post('/{id}/reject', [CustomerSettlementController::class, 'reject'])->whereNumber('id');
+    });
+
+    Route::prefix('void-transaction')->group(function () {
+        Route::post('/search', [VoidTransactionController::class, 'search']);
+        Route::post('/void', [VoidTransactionController::class, 'void']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {

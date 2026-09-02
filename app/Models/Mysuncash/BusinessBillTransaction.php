@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * `status` here is a DIFFERENT vocabulary than `ManualSettlement::status`:
  * 'A' = Pending (awaiting review), 'P' = Processed (approved), 'R' = Rejected.
  */
-#[Fillable(['status', 'update_by', 'update_date'])]
+#[Fillable(['status', 'update_by', 'update_date', 'cancel_note', 'cancellation_date'])]
 class BusinessBillTransaction extends Model
 {
     public const STATUS_PENDING = 'A';
@@ -23,6 +23,10 @@ class BusinessBillTransaction extends Model
     public const STATUS_PROCESSED = 'P';
 
     public const STATUS_REJECTED = 'R';
+
+    public const STATUS_SCHEDULED = 'S';
+
+    public const STATUS_VOIDED = 'V';
 
     public const SOURCE_APP = 'BusinessBillpay';
 
