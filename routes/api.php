@@ -47,11 +47,14 @@ use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
 use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
 use App\Http\Controllers\Api\Kiosk\KioskBankAccountController;
 use App\Http\Controllers\Api\Kiosk\KioskBranchController;
+use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
 use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
+use App\Http\Controllers\Api\Kiosk\KioskReplenishReportController;
 use App\Http\Controllers\Api\Kiosk\KioskStatementController;
 use App\Http\Controllers\Api\Kiosk\KioskTerminalController;
 use App\Http\Controllers\Api\Kiosk\KioskUserController;
+use App\Http\Controllers\Api\Kiosk\KioskZoutReportController;
 use App\Http\Controllers\Api\Kyc\KycUpgradeController;
 use App\Http\Controllers\Api\LandingPageController;
 use App\Http\Controllers\Api\LandingPageSectionController;
@@ -452,6 +455,30 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{type}/{id}', [KioskUserController::class, 'update'])->whereNumber('id');
         Route::delete('/{id}', [KioskUserController::class, 'destroy'])->whereNumber('id');
         Route::post('/{id}/reset-password', [KioskUserController::class, 'resetPassword'])->whereNumber('id');
+    });
+
+    Route::prefix('kiosk-zout-reports')->group(function () {
+        Route::get('/', [KioskZoutReportController::class, 'index']);
+        Route::get('/export', [KioskZoutReportController::class, 'export']);
+        Route::get('/{settlementNo}', [KioskZoutReportController::class, 'show']);
+    });
+
+    Route::prefix('kiosk-cash-meters')->group(function () {
+        Route::get('/', [KioskCashMeterController::class, 'index']);
+        Route::get('/terminals', [KioskCashMeterController::class, 'terminals']);
+        Route::get('/meters', [KioskCashMeterController::class, 'meters']);
+    });
+
+    Route::prefix('kiosk-replenish-reports')->group(function () {
+        Route::get('/', [KioskReplenishReportController::class, 'index']);
+        Route::get('/terminals', [KioskReplenishReportController::class, 'terminals']);
+        Route::get('/export', [KioskReplenishReportController::class, 'exportList']);
+        Route::get('/{terminalId}/meter', [KioskReplenishReportController::class, 'meter'])->whereNumber('terminalId');
+        Route::get('/{terminalId}/meter/export', [KioskReplenishReportController::class, 'exportMeter'])->whereNumber('terminalId');
+        Route::get('/{terminalId}/add-cash', [KioskReplenishReportController::class, 'addCash'])->whereNumber('terminalId');
+        Route::get('/{terminalId}/add-cash/export', [KioskReplenishReportController::class, 'exportAddCash'])->whereNumber('terminalId');
+        Route::get('/{terminalId}/clear-acceptor', [KioskReplenishReportController::class, 'clearAcceptor'])->whereNumber('terminalId');
+        Route::get('/{terminalId}/clear-acceptor/export', [KioskReplenishReportController::class, 'exportClearAcceptor'])->whereNumber('terminalId');
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
