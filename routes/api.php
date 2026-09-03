@@ -45,11 +45,14 @@ use App\Http\Controllers\Api\FloatManagement\MainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\SetMainReserveAccountController;
 use App\Http\Controllers\Api\FloatManagement\StoreFloatReplenishmentController;
 use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
+use App\Http\Controllers\Api\Kiosk\KioskAgentCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskBankAccountController;
 use App\Http\Controllers\Api\Kiosk\KioskBranchController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
+use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
 use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
+use App\Http\Controllers\Api\Kiosk\KioskReconciliationReportController;
 use App\Http\Controllers\Api\Kiosk\KioskReplenishReportController;
 use App\Http\Controllers\Api\Kiosk\KioskStatementController;
 use App\Http\Controllers\Api\Kiosk\KioskTerminalController;
@@ -485,6 +488,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('kiosk-transaction-reports')->group(function () {
         Route::get('/', [KioskTransactionReportController::class, 'index']);
         Route::get('/export', [KioskTransactionReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-commission-reports')->group(function () {
+        Route::get('/', [KioskCommissionReportController::class, 'index']);
+        Route::get('/export', [KioskCommissionReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-agent-commission-reports')->group(function () {
+        Route::get('/', [KioskAgentCommissionReportController::class, 'index']);
+        Route::get('/export', [KioskAgentCommissionReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-reconciliation-reports')->group(function () {
+        Route::get('/', [KioskReconciliationReportController::class, 'index']);
+        Route::get('/export', [KioskReconciliationReportController::class, 'export']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
