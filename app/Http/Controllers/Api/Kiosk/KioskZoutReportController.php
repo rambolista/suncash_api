@@ -66,6 +66,7 @@ class KioskZoutReportController extends Controller
         return response()->json([
             'data' => $this->reports->list($branchId, $location, $date),
             'branches' => $this->reports->listBranches(),
+            'locations' => $this->reports->listLocations(),
         ]);
     }
 

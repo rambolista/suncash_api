@@ -3,6 +3,7 @@
 namespace App\Services\Kiosk;
 
 use App\Models\Mysuncash\KioskBranch;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,12 +29,23 @@ use Illuminate\Validation\ValidationException;
  * `KioskStatementController`), so branch scoping is just an explicit,
  * optional filter param instead of something auto-derived from the actor.
  *
- * Legacy's `location` filter dropdown offers exactly one hard-coded option
- * ("Bahamas" → literal value `bahamas`) that doesn't case-sensitively match
- * any real `ztrail.location` value in current data (real values look like
- * "FastPay" or "New Providence,Bahamas") — replicated as-is rather than
- * "fixed", since silently changing filter semantics would be a bigger
- * departure from legacy than an inert dropdown option.
+ * Legacy's `location` filter dropdown offered exactly one hard-coded option
+ * ("Bahamas" → literal value `bahamas`) that never matched any real
+ * `ztrail.location` value (real values look like "FastPay" or "New
+ * Providence,Bahamas") — an inert filter in legacy itself. Not replicated:
+ * `listLocations()` instead returns the real distinct values so the
+ * dropdown/filter actually works.
+ *
+ * `ztrail.settlement_date` is a `varchar(20)`, not a real DATE/DATETIME
+ * column, and its values are inconsistently formatted across rows — some
+ * `Y-m-d H:i:s` (a handful of older rows), most `m-d-Y h:i A` (e.g.
+ * `02-13-2026 11:06 AM`, from PHP's own `date()` formatting on write).
+ * MySQL's `DATE(...)` silently returns NULL for the latter format, so a
+ * SQL-side `DATE(z.settlement_date) = ?` filter — the literal translation
+ * of legacy's PHP-side date comparison — matched almost nothing. Filtering
+ * is done in PHP instead (`parseSettlementDate()`, trying both known
+ * formats) after fetching, which works regardless of which format a given
+ * row was written in.
  *
  * Deliberately NOT replicated: legacy's export uses a SEPARATE query
  * (`get_export_zout_report()` / `export_sort_zout()`) grouped by
@@ -83,6 +95,38 @@ class KioskZoutReportService
             ->all();
     }
 
+    public function listLocations(): array
+    {
+        return DB::connection('mysuncash')->table('ztrail')
+            ->whereNotNull('location')
+            ->where('location', '!=', '')
+            ->distinct()
+            ->orderBy('location')
+            ->pluck('location')
+            ->all();
+    }
+
+    /** `settlement_date` is a varchar with mixed formats — see class docblock. */
+    private function parseSettlementDate(?string $value): ?Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        foreach (['m-d-Y h:i A', 'Y-m-d H:i:s'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed;
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
     private function present(object $row): array
     {
         return [
@@ -109,18 +153,18 @@ class KioskZoutReportService
             $where[] = 'z.location = ?';
             $bindings[] = $location;
         }
-        if (filled($date)) {
-            $where[] = 'DATE(z.settlement_date) = ?';
-            $bindings[] = $date;
-        }
 
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
 
-        $sql = 'SELECT '.self::SELECT."\n".self::FROM_JOIN."\n{$whereSql}\nGROUP BY DATE(z.settlement_date), z.settlement_no";
+        $sql = 'SELECT '.self::SELECT."\n".self::FROM_JOIN."\n{$whereSql}\nGROUP BY z.settlement_no";
 
         $rows = DB::connection('mysuncash')->select($sql, $bindings);
 
-        return array_map(fn ($row) => $this->present($row), $rows);
+        if (filled($date)) {
+            $rows = array_filter($rows, fn ($row) => $this->parseSettlementDate($row->settlement_date)?->toDateString() === $date);
+        }
+
+        return array_map(fn ($row) => $this->present($row), array_values($rows));
     }
 
     /**
@@ -128,7 +172,7 @@ class KioskZoutReportService
      */
     public function details(string $settlementNo): array
     {
-        $sql = 'SELECT '.self::SELECT."\n".self::FROM_JOIN."\nWHERE z.settlement_no = ?\nGROUP BY DATE(z.settlement_date), z.settlement_no";
+        $sql = 'SELECT '.self::SELECT."\n".self::FROM_JOIN."\nWHERE z.settlement_no = ?\nGROUP BY z.settlement_no";
 
         $row = DB::connection('mysuncash')->selectOne($sql, [$settlementNo]);
         if (! $row) {

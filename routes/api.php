@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\Giftcard\GiftcardProductController;
 use App\Http\Controllers\Api\Kiosk\KioskAgentCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskBankAccountController;
 use App\Http\Controllers\Api\Kiosk\KioskBranchController;
+use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
@@ -503,6 +504,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('kiosk-reconciliation-reports')->group(function () {
         Route::get('/', [KioskReconciliationReportController::class, 'index']);
         Route::get('/export', [KioskReconciliationReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-cash-exposure-reports')->group(function () {
+        Route::get('/', [KioskCashExposureReportController::class, 'index']);
+        Route::get('/export', [KioskCashExposureReportController::class, 'export']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
