@@ -50,6 +50,7 @@ use App\Http\Controllers\Api\Kiosk\KioskBankAccountController;
 use App\Http\Controllers\Api\Kiosk\KioskBranchController;
 use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
+use App\Http\Controllers\Api\Kiosk\KioskCommissionProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
 use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
@@ -472,6 +473,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [KioskCashMeterController::class, 'index']);
         Route::get('/terminals', [KioskCashMeterController::class, 'terminals']);
         Route::get('/meters', [KioskCashMeterController::class, 'meters']);
+        Route::get('/export', [KioskCashMeterController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-commission-profiles')->group(function () {
+        Route::get('/', [KioskCommissionProfileController::class, 'index']);
+        Route::post('/', [KioskCommissionProfileController::class, 'store']);
+        Route::post('/copy', [KioskCommissionProfileController::class, 'copy']);
+        Route::put('/rows/{id}', [KioskCommissionProfileController::class, 'updateRow'])->whereNumber('id');
+        Route::get('/{profileName}', [KioskCommissionProfileController::class, 'show'])->where('profileName', '.*');
+        Route::delete('/{profileName}', [KioskCommissionProfileController::class, 'destroy'])->where('profileName', '.*');
     });
 
     Route::prefix('kiosk-replenish-reports')->group(function () {
