@@ -54,6 +54,7 @@ use App\Http\Controllers\Api\Kiosk\KioskCommissionProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
 use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
+use App\Http\Controllers\Api\Kiosk\KioskProductProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskReconciliationReportController;
 use App\Http\Controllers\Api\Kiosk\KioskReplenishReportController;
 use App\Http\Controllers\Api\Kiosk\KioskStatementController;
@@ -483,6 +484,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/rows/{id}', [KioskCommissionProfileController::class, 'updateRow'])->whereNumber('id');
         Route::get('/{profileName}', [KioskCommissionProfileController::class, 'show'])->where('profileName', '.*');
         Route::delete('/{profileName}', [KioskCommissionProfileController::class, 'destroy'])->where('profileName', '.*');
+    });
+
+    Route::prefix('kiosk-product-profiles')->group(function () {
+        Route::get('/', [KioskProductProfileController::class, 'index']);
+        Route::get('/feature-settings', [KioskProductProfileController::class, 'featureSettings']);
+        Route::put('/feature-settings/{id}', [KioskProductProfileController::class, 'updateFeatureSetting'])->whereNumber('id');
+        Route::put('/modules/{id}', [KioskProductProfileController::class, 'updateModuleStatus'])->whereNumber('id');
+        Route::get('/{terminalId}/modules', [KioskProductProfileController::class, 'terminalModules'])->whereNumber('terminalId');
+        Route::post('/{terminalId}/services', [KioskProductProfileController::class, 'addServices'])->whereNumber('terminalId');
+        Route::put('/{terminalId}/services', [KioskProductProfileController::class, 'replaceServices'])->whereNumber('terminalId');
+        Route::post('/{terminalId}/disable', [KioskProductProfileController::class, 'disable'])->whereNumber('terminalId');
+        Route::post('/{terminalId}/enable', [KioskProductProfileController::class, 'enable'])->whereNumber('terminalId');
     });
 
     Route::prefix('kiosk-replenish-reports')->group(function () {

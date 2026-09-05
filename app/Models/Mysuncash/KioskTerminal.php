@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'kiosk_branch_id', 'code', 'name', 'device_id', 'username', 'password',
     'location', 'island', 'terminal_type', 'acceptor_high_alert', 'dispenser_low_alert',
     'manager_id', 'profile_id', 'commission_type', 'commission_fixed_value',
-    'status', 'create_by', 'create_date', 'update_by', 'update_date',
+    'status', 'access_modules', 'create_by', 'create_date', 'update_by', 'update_date',
 ])]
 class KioskTerminal extends Model
 {
