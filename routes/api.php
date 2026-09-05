@@ -50,10 +50,12 @@ use App\Http\Controllers\Api\Kiosk\KioskBankAccountController;
 use App\Http\Controllers\Api\Kiosk\KioskBranchController;
 use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
+use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
 use App\Http\Controllers\Api\Kiosk\KioskPartnerController;
+use App\Http\Controllers\Api\Kiosk\KioskPartnerSettlementReportController;
 use App\Http\Controllers\Api\Kiosk\KioskProductProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskReconciliationReportController;
 use App\Http\Controllers\Api\Kiosk\KioskReplenishReportController;
@@ -498,6 +500,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{terminalId}/enable', [KioskProductProfileController::class, 'enable'])->whereNumber('terminalId');
     });
 
+    Route::prefix('kiosk-commission-approval')->group(function () {
+        Route::get('/', [KioskCommissionApprovalController::class, 'index']);
+        Route::get('/export', [KioskCommissionApprovalController::class, 'export']);
+        Route::get('/terminals/{terminalId}/history', [KioskCommissionApprovalController::class, 'history'])->whereNumber('terminalId');
+        Route::get('/{transactionId}', [KioskCommissionApprovalController::class, 'show']);
+        Route::post('/{transactionId}/approve', [KioskCommissionApprovalController::class, 'approve']);
+        Route::post('/{transactionId}/reject', [KioskCommissionApprovalController::class, 'reject']);
+    });
+
     Route::prefix('kiosk-replenish-reports')->group(function () {
         Route::get('/', [KioskReplenishReportController::class, 'index']);
         Route::get('/terminals', [KioskReplenishReportController::class, 'terminals']);
@@ -533,6 +544,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('kiosk-cash-exposure-reports')->group(function () {
         Route::get('/', [KioskCashExposureReportController::class, 'index']);
         Route::get('/export', [KioskCashExposureReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-partner-settlement-reports')->group(function () {
+        Route::get('/', [KioskPartnerSettlementReportController::class, 'index']);
+        Route::get('/export', [KioskPartnerSettlementReportController::class, 'export']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {

@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'transaction_reference_id', 'transaction_id', 'message', 'status',
     'proccessed_date', 'proccessed_by', 'updated_date', 'updated_by',
     'check_number', 'is_check_signed', 'rejected_date', 'rejected_by',
+    'customer_id', 'origin_id', 'transaction_type', 'linked_bank_branch_id',
+    'amount', 'total_amount', 'fee', 'withdrawal_type', 'account_type',
+    'customer_number', 'channel', 'created_date', 'created_by',
 ])]
 class CustomerSettlement extends Model
 {

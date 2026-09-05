@@ -126,4 +126,91 @@ class KioskCommissionMath
             'owner_commission' => round($ownerCommission, 2),
         ];
     }
+
+    /**
+     * Legacy `Kiosk_commission_model::computeCommissionTimedate()` — used
+     * ONLY by the Partner Settlement report. Unlike `computeCommission()`
+     * above (always `$timedate=""`), this receives a real `$months`
+     * multiplier for the "Fixed" leg (full months spanned by the report's
+     * date range — see `KioskPartnerSettlementReportService::commissionMonths()`),
+     * so commission_type 1/3/4 terminals DO produce non-zero commission
+     * here, unlike every other ported commission report. Also unlike
+     * `computeCommission()`, the Fixed leg's agent/suncash/owner split is
+     * hardcoded to 10% each (`$agent_percentage = ... = 10/100`), not read
+     * from any profile. Only the `agent_commission` leg is surfaced by
+     * Partner Settlement's "Commission" column, but the full legacy return
+     * shape (all three legs + `commission_type` label, used by the caller to
+     * decide whether to add the Fixed leg once-per-terminal or per-transaction)
+     * is preserved here.
+     *
+     * @return array{agent_commission: float, suncash_commission: float, owner_commission: float, commission_type: string}
+     */
+    public function computeCommissionTimedate(array &$terminalCache, array &$profileCache, string $transactionType, int $terminalId, float $amount, float $fees, int $months): array
+    {
+        $agentPercentage = $suncashPercentage = $ownerPercentage = 0.10;
+        $agentCommission = $suncashCommission = $ownerCommission = 0.0;
+        $commissionType = '';
+
+        $terminal = $this->terminalConfig($terminalCache, $terminalId);
+        if (! $terminal) {
+            return ['agent_commission' => 0.0, 'suncash_commission' => 0.0, 'owner_commission' => 0.0, 'commission_type' => $commissionType];
+        }
+
+        $fixedCommission = $terminal['commission_fixed_value'] * $months;
+
+        switch ($terminal['commission_type']) {
+            case 1: // Fixed
+                $commissionType = 'fixed';
+                $agentCommission = $fixedCommission * $agentPercentage;
+                $suncashCommission = $fixedCommission * $suncashPercentage;
+                $ownerCommission = $fixedCommission * $ownerPercentage;
+                break;
+
+            case 2: // Percentage
+                $commissionType = 'percentage';
+                if ($profile = $this->percentageProfile($profileCache, $transactionType, $terminalId)) {
+                    $commission = ($profile['provider_percentage'] / 100 * $amount) + $fees;
+                    $agentCommission = $commission * ($profile['agent_percentage'] / 100);
+                    $suncashCommission = $commission * ($profile['suncash_percentage'] / 100);
+                    $ownerCommission = $commission * ($profile['owner_percentage'] / 100);
+                }
+                break;
+
+            case 3: // Greater Amount — max(fixed leg, percentage leg) per commission recipient
+                $commissionType = 'fixed';
+                $agentCommission = $fixedCommission * $agentPercentage;
+                $suncashCommission = $fixedCommission * $suncashPercentage;
+                $ownerCommission = $fixedCommission * $ownerPercentage;
+                if ($profile = $this->percentageProfile($profileCache, $transactionType, $terminalId)) {
+                    $commission = ($profile['provider_percentage'] / 100 * $amount) + $fees;
+                    $agentCommission = max($agentCommission, $commission * ($profile['agent_percentage'] / 100));
+                    $suncashCommission = max($suncashCommission, $commission * ($profile['suncash_percentage'] / 100));
+                    $ownerCommission = max($ownerCommission, $commission * ($profile['owner_percentage'] / 100));
+                    $commissionType = 'greater_percentage';
+                }
+                break;
+
+            case 4: // Fixed + Percentage — sums both legs
+                $commissionType = 'fixed_percentage';
+                $agentCommission = $fixedCommission * $agentPercentage;
+                $suncashCommission = $fixedCommission * $suncashPercentage;
+                $ownerCommission = $fixedCommission * $ownerPercentage;
+                if ($profile = $this->percentageProfile($profileCache, $transactionType, $terminalId)) {
+                    $commission = ($profile['provider_percentage'] / 100 * $amount) + $fees;
+                    $agentCommission += $commission * ($profile['agent_percentage'] / 100);
+                    $suncashCommission += $commission * ($profile['suncash_percentage'] / 100);
+                    $ownerCommission += $commission * ($profile['owner_percentage'] / 100);
+                }
+                break;
+
+            // No default: any other commission_type (0, 5, ...) has no legacy switch arm — stays zero.
+        }
+
+        return [
+            'agent_commission' => round($agentCommission, 2),
+            'suncash_commission' => round($suncashCommission, 2),
+            'owner_commission' => round($ownerCommission, 2),
+            'commission_type' => $commissionType,
+        ];
+    }
 }
