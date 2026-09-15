@@ -141,6 +141,7 @@ class MerchantRegistrationService
             'dba_name' => $merchant->dba_name,
             'tax_id' => $merchant->tax_id,
             'entity_type' => is_numeric($merchant->reseller_type) ? (int) $merchant->reseller_type : '',
+            'short_code' => $this->lookupShortCode($merchant->id, is_numeric($merchant->reseller_type) ? (int) $merchant->reseller_type : 0),
             'contactphone' => $merchant->phone_no,
             'contactfax' => $merchant->fax_no,
             'registration_status' => $merchant->registration_status,
@@ -231,7 +232,7 @@ class MerchantRegistrationService
             ]);
 
             $this->logRegistration($merchant->id, $data['merchant_id'], $now);
-            $this->registerShortCode($merchant->id, $entityType, $data, $now);
+            $this->syncShortCode($merchant->id, $entityType, $data, $now);
 
             return ['client_record_id' => $merchant->id, 'client_id' => $data['merchant_id']];
         });
@@ -274,6 +275,9 @@ class MerchantRegistrationService
             }
 
             $this->syncFeeCommissions($id, $data['fees'] ?? [], $now, $updatedBy);
+
+            $entityType = (int) ($data['entity_type'] ?? $merchant->reseller_type);
+            $this->syncShortCode($id, $entityType, $data, $now);
 
             return ['client_record_id' => $id, 'client_id' => $merchant->client_id];
         });
@@ -492,31 +496,54 @@ class MerchantRegistrationService
         ]);
     }
 
-    /** Billers and Charitable Institutions get an extra short-code record (mirrors tools_model::save_short_code). */
-    private function registerShortCode(int $merchantId, int $entityType, array $data, Carbon $now): void
+    /** Reads a Biller/Charitable Institution's short code back for display — the counterpart write side is syncShortCode(). */
+    private function lookupShortCode(int $merchantId, int $entityType): string
+    {
+        if ($entityType === 3) {
+            return (string) (Biller::where('client_record_id', $merchantId)->value('biller_code') ?? '');
+        }
+        if ($entityType === 4) {
+            return (string) (CharitableInstitution::where('client_record_id', $merchantId)->value('charity_code') ?? '');
+        }
+
+        return '';
+    }
+
+    /**
+     * Billers and Charitable Institutions get an extra short-code record
+     * (mirrors tools_model::save_short_code). Upserts by `client_record_id`
+     * rather than always inserting, so editing an existing merchant's short
+     * code on the Business Information tab actually saves the change —
+     * the original registration-only version of this method silently
+     * dropped any short code edit made after the merchant was created,
+     * since it was never called from update() at all. A cleared (blank)
+     * short code is left alone rather than deleted, since removing a
+     * biller/charity's registration outright isn't something this form
+     * was ever asked to do.
+     */
+    private function syncShortCode(int $merchantId, int $entityType, array $data, Carbon $now): void
     {
         $shortCode = trim((string) ($data['short_code'] ?? ''));
         if ($shortCode === '') {
             return;
         }
 
-        $name = $data['doing_business_as'] ?? $data['exact_legal_name'];
+        $name = $data['doing_business_as'] ?? $data['exact_legal_name'] ?? '';
 
         if ($entityType === 3) {
-            Biller::create([
-                'biller_code' => $shortCode,
-                'biller_name' => $name,
-                'client_record_id' => $merchantId,
-                'fee_amount' => 0,
-                'date_created' => $now,
-            ]);
+            $existing = Biller::where('client_record_id', $merchantId)->first();
+            if ($existing) {
+                $existing->update(['biller_code' => $shortCode, 'biller_name' => $name]);
+            } else {
+                Biller::create(['biller_code' => $shortCode, 'biller_name' => $name, 'client_record_id' => $merchantId, 'fee_amount' => 0, 'date_created' => $now]);
+            }
         } elseif ($entityType === 4) {
-            CharitableInstitution::create([
-                'charity_code' => $shortCode,
-                'charity_name' => $name,
-                'client_record_id' => $merchantId,
-                'date_created' => $now,
-            ]);
+            $existing = CharitableInstitution::where('client_record_id', $merchantId)->first();
+            if ($existing) {
+                $existing->update(['charity_code' => $shortCode, 'charity_name' => $name]);
+            } else {
+                CharitableInstitution::create(['charity_code' => $shortCode, 'charity_name' => $name, 'client_record_id' => $merchantId, 'date_created' => $now]);
+            }
         }
     }
 }
