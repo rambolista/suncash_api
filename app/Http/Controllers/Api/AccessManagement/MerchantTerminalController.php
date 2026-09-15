@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\AccessManagement;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Mysuncash\Terminal;
+use App\Services\Merchant\MerchantBranchService;
 use App\Services\Merchant\MerchantTerminalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,8 +15,10 @@ class MerchantTerminalController extends Controller
 {
     private const MODULE_PATH = '/merchants/registration';
 
-    public function __construct(private readonly MerchantTerminalService $terminals)
-    {
+    public function __construct(
+        private readonly MerchantTerminalService $terminals,
+        private readonly MerchantBranchService $branches,
+    ) {
     }
 
     private function forbidden(Request $request, string $action): ?JsonResponse
@@ -45,6 +48,7 @@ class MerchantTerminalController extends Controller
             'terminals' => $this->terminals->listTerminals($id),
             'device_types' => Terminal::DEVICE_TYPES,
             'connection_types' => Terminal::CONNECTION_TYPES,
+            'branches' => $this->branches->listBranches($id),
         ]);
     }
 

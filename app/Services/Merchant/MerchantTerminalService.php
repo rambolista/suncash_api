@@ -44,13 +44,27 @@ class MerchantTerminalService
             'lane_counter' => $terminal->lane_counter,
             'counter_no' => $terminal->counter_no,
             'branch_id' => $terminal->branch_id,
+            'branch_name' => $terminal->branch ? "{$terminal->branch->branch_code} — {$terminal->branch->description}" : null,
+            'creation_date' => $terminal->creation_date,
         ];
+    }
+
+    /**
+     * `branch_id` is a varchar column; legacy's own "No-Branch" option posts the
+     * sentinel "-1" (306 live rows use it) rather than leaving the column null,
+     * so an unselected Form.Select value is normalized to that same sentinel
+     * instead of null/empty-string for consistency with existing data.
+     */
+    private function normalizeBranchId(mixed $value): string
+    {
+        return filled($value) ? (string) $value : '-1';
     }
 
     public function listTerminals(int $merchantId): array
     {
         return Terminal::where('client_id', $merchantId)
             ->whereIn('device_status_id', [0, 1])
+            ->with('branch')
             ->orderBy('device_id')
             ->get()
             ->map(fn (Terminal $terminal) => $this->present($terminal))
@@ -96,7 +110,7 @@ class MerchantTerminalService
             'connection_type_id' => $data['connection_type_id'],
             'lane_counter' => $data['lane_counter'] ?? null,
             'counter_no' => $data['counter_no'] ?? null,
-            'branch_id' => $data['branch_id'] ?? null,
+            'branch_id' => $this->normalizeBranchId($data['branch_id'] ?? null),
             'user_id_create' => $actorId,
             'user_id_modify' => $actorId,
             'creation_date' => $now,
@@ -121,7 +135,7 @@ class MerchantTerminalService
             'connection_type_id' => $data['connection_type_id'] ?? $terminal->connection_type_id,
             'lane_counter' => $data['lane_counter'] ?? $terminal->lane_counter,
             'counter_no' => $data['counter_no'] ?? $terminal->counter_no,
-            'branch_id' => $data['branch_id'] ?? $terminal->branch_id,
+            'branch_id' => array_key_exists('branch_id', $data) ? $this->normalizeBranchId($data['branch_id']) : $terminal->branch_id,
             'user_id_modify' => $actorId,
             'modification_date' => now(),
         ]);
