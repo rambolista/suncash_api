@@ -100,7 +100,10 @@ class MerchantOperationsController extends Controller
             return $response;
         }
 
-        return response()->json($this->operations->listUsers($id));
+        return response()->json([
+            'users' => $this->operations->listUsers($id),
+            'user_types' => MerchantOperationsService::USER_TYPES,
+        ]);
     }
 
     public function addUser(Request $request, int $id): JsonResponse
@@ -117,7 +120,44 @@ class MerchantOperationsController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Merchant Operations', 'added', "Added portal user for merchant #{$id}.", null, $request);
 
-        return response()->json(['message' => 'User added successfully.'] + $result, 201);
+        return response()->json(['message' => 'User added successfully.', 'user' => $result], 201);
+    }
+
+    public function updateUser(Request $request, int $id, int $userId): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'user-management', 'can_edit')) {
+            return $response;
+        }
+
+        try {
+            $result = $this->operations->updateUser($id, $userId, $request->all(), (string) $request->user()->id);
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'updated', "Updated portal user #{$userId} for merchant #{$id}.", null, $request);
+
+        return response()->json(['message' => 'User updated successfully.', 'user' => $result]);
+    }
+
+    public function resetUserPassword(Request $request, int $id, int $userId): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'user-management', 'can_edit')) {
+            return $response;
+        }
+
+        try {
+            $result = $this->operations->resetUserPassword($id, $userId, (string) $request->user()->id);
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        ActivityLog::recordAction($request->user(), 'Merchant Operations', 'reset_password', "Reset password for portal user #{$userId} of merchant #{$id}.", null, $request);
+
+        return response()->json([
+            'message' => "Password reset — new credentials were e-mailed to {$result['email']}.",
+            'username' => $result['username'],
+        ]);
     }
 
     // ── Activate / deactivate ───────────────────────────────────────────────

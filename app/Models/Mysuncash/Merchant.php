@@ -137,10 +137,20 @@ class Merchant extends Model
         return $this->hasMany(ServicesPermission::class, 'client_record_id');
     }
 
-    /** All portal logins for this merchant (the default account plus any staff sub-users), all user_type_id = 1. */
+    /**
+     * All portal logins for this merchant: the default account plus any
+     * staff sub-users added via the User Management tab. Mirrors legacy's
+     * merchant_user_list query, which has no user_type_id filter at all —
+     * scoped here to the fixed Roles dropdown set (see
+     * MerchantOperationsService::USER_TYPES: Client Admin/External/User/
+     * Support/Manager) rather than left wide open, since `user_reference`
+     * is a plain int shared across every unrelated user type in this table
+     * (admins, cardholders, agents...) and could otherwise collide with an
+     * unrelated row that happens to reuse this merchant's id.
+     */
     public function userAccounts(): HasMany
     {
-        return $this->hasMany(UserAccount::class, 'user_reference')->where('user_type_id', 1);
+        return $this->hasMany(UserAccount::class, 'user_reference')->whereIn('user_type_id', [1, 4, 5, 6, 7]);
     }
 
     public function branches(): HasMany

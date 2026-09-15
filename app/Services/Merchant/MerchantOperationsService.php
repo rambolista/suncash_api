@@ -23,6 +23,15 @@ use Illuminate\Validation\ValidationException;
  */
 class MerchantOperationsService
 {
+    /** Mirrors the fixed role list on legacy's merchant_user_registration.php Roles dropdown. */
+    public const USER_TYPES = [
+        1 => 'Client Admin',
+        4 => 'External',
+        5 => 'User',
+        6 => 'Support',
+        7 => 'Manager',
+    ];
+
     private function findMerchantOrFail(int $merchantId): Merchant
     {
         $merchant = Merchant::find($merchantId);
@@ -77,26 +86,15 @@ class MerchantOperationsService
     // ── Password reset ──────────────────────────────────────────────────────
 
     /**
-     * Generates a new random password for the merchant's default portal
-     * login, e-mails it to the merchant's contact address, and returns only
-     * the username + confirmation (never the password itself) to the admin —
-     * mirrors tools_model::reset_merchant_password.
-     *
-     * @throws ValidationException
+     * Generates a new random password and updates the account's credentials
+     * (password, user_keys, password_history) — shared by resetPassword()
+     * (the merchant list's single "reset password" action, targeting the
+     * merchant's default login) and resetUserPassword() (User Management
+     * tab, any specific portal user). Mirrors accounts_model::reset_password.
+     * Returns the new plaintext password; callers e-mail it and never persist it.
      */
-    public function resetPassword(int $merchantId, string $actorId): array
+    private function applyNewPassword(UserAccount $userAccount, Merchant $merchant, string $actorId): string
     {
-        $merchant = $this->findMerchantOrFail($merchantId);
-        $userAccount = $merchant->userAccounts()->orderBy('id')->first();
-        $email = $merchant->merchantDetail?->contactemail;
-
-        if (! $userAccount) {
-            throw ValidationException::withMessages(['id' => ['This merchant has no portal login to reset.']]);
-        }
-        if (! filled($email)) {
-            throw ValidationException::withMessages(['id' => ['The contact e-mail address for this merchant is not set.']]);
-        }
-
         $newPassword = strtoupper(Str::random(6)) . Str::lower(Str::random(2));
         [$encryptedPassword, $userKey] = array_values(LegacyCredentialCipher::encrypt($newPassword));
         $now = now();
@@ -131,6 +129,31 @@ class MerchantOperationsService
             }
         });
 
+        return $newPassword;
+    }
+
+    /**
+     * Generates a new random password for the merchant's default portal
+     * login, e-mails it to the merchant's contact address, and returns only
+     * the username + confirmation (never the password itself) to the admin —
+     * mirrors tools_model::reset_merchant_password.
+     *
+     * @throws ValidationException
+     */
+    public function resetPassword(int $merchantId, string $actorId): array
+    {
+        $merchant = $this->findMerchantOrFail($merchantId);
+        $userAccount = $merchant->userAccounts()->orderBy('id')->first();
+        $email = $merchant->merchantDetail?->contactemail;
+
+        if (! $userAccount) {
+            throw ValidationException::withMessages(['id' => ['This merchant has no portal login to reset.']]);
+        }
+        if (! filled($email)) {
+            throw ValidationException::withMessages(['id' => ['The contact e-mail address for this merchant is not set.']]);
+        }
+
+        $newPassword = $this->applyNewPassword($userAccount, $merchant, $actorId);
         Mail::to($email)->send(new MerchantPasswordResetMail($userAccount->user_name, $newPassword));
 
         return ['username' => $userAccount->user_name, 'email' => $email];
@@ -138,21 +161,28 @@ class MerchantOperationsService
 
     // ── Portal user management ──────────────────────────────────────────────
 
+    private function presentUser(UserAccount $user): array
+    {
+        return [
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'username' => $user->user_name,
+            'email' => $user->email_address,
+            'status' => (int) $user->user_status_id === 0 ? 'active' : 'inactive',
+            'user_type_id' => (int) $user->user_type_id,
+            'user_type' => self::USER_TYPES[(int) $user->user_type_id] ?? null,
+            'creation_date' => $user->creation_date,
+        ];
+    }
+
     public function listUsers(int $merchantId): array
     {
         return Merchant::findOrFail($merchantId)
             ->userAccounts()
             ->orderBy('creation_date')
             ->get()
-            ->map(fn (UserAccount $user) => [
-                'id' => $user->id,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'username' => $user->user_name,
-                'email' => $user->email_address,
-                'status' => (int) $user->user_status_id === 0 ? 'active' : 'inactive',
-                'creation_date' => $user->creation_date,
-            ])
+            ->map(fn (UserAccount $user) => $this->presentUser($user))
             ->all();
     }
 
@@ -163,7 +193,7 @@ class MerchantOperationsService
     {
         $merchant = $this->findMerchantOrFail($merchantId);
 
-        $required = ['first_name', 'last_name', 'username', 'password', 'email'];
+        $required = ['first_name', 'last_name', 'username', 'password', 'email', 'user_type_id'];
         $errors = [];
         foreach ($required as $field) {
             if (! filled($data[$field] ?? null)) {
@@ -172,6 +202,10 @@ class MerchantOperationsService
         }
         if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
+        }
+
+        if (! array_key_exists((int) $data['user_type_id'], self::USER_TYPES)) {
+            throw ValidationException::withMessages(['user_type_id' => ['Select a valid role.']]);
         }
 
         if (filled($data['email']) && ! filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
@@ -191,7 +225,7 @@ class MerchantOperationsService
 
         $user = DB::connection('mysuncash')->transaction(function () use ($merchant, $data, $actorId, $now, $encryptedPassword, $userKey) {
             $user = UserAccount::create([
-                'user_type_id' => 1,
+                'user_type_id' => (int) $data['user_type_id'],
                 'user_reference' => $merchant->id,
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
@@ -215,18 +249,96 @@ class MerchantOperationsService
             return $user;
         });
 
-        return ['id' => $user->id, 'username' => $user->user_name];
+        return $this->presentUser($user);
+    }
+
+    /**
+     * Mirrors accounts_model::update_merchant_user — legacy's edit form only
+     * exposes username, e-mail, and status (role is set once at registration
+     * and never re-editable here).
+     *
+     * @throws ValidationException
+     */
+    public function updateUser(int $merchantId, int $userId, array $data, string $actorId): array
+    {
+        $merchant = $this->findMerchantOrFail($merchantId);
+        $user = $merchant->userAccounts()->where('id', $userId)->first();
+        if (! $user) {
+            throw ValidationException::withMessages(['id' => ['User not found.']]);
+        }
+
+        $errors = [];
+        if (! filled($data['username'] ?? null)) {
+            $errors['username'] = ['Username is required.'];
+        }
+        if (! filled($data['email'] ?? null)) {
+            $errors['email'] = ['E-mail is required.'];
+        } elseif (! filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            $errors['email'] = ['Enter a valid e-mail address.'];
+        }
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        if (UserAccount::where('user_name', $data['username'])->where('id', '!=', $userId)->exists()) {
+            throw ValidationException::withMessages(['username' => ['Username already exists.']]);
+        }
+
+        $user->update([
+            'user_name' => $data['username'],
+            'email_address' => $data['email'],
+            'user_status_id' => ($data['status'] ?? 'active') === 'active' ? 0 : 1,
+            'user_id_modified' => $actorId,
+            'modification_date' => now(),
+        ]);
+
+        return $this->presentUser($user);
+    }
+
+    /**
+     * Per-user password reset for the User Management tab — e-mails the new
+     * password to that user's own address (unlike resetPassword() above,
+     * which targets the merchant's contact e-mail for the default login).
+     *
+     * @throws ValidationException
+     */
+    public function resetUserPassword(int $merchantId, int $userId, string $actorId): array
+    {
+        $merchant = $this->findMerchantOrFail($merchantId);
+        $userAccount = $merchant->userAccounts()->where('id', $userId)->first();
+
+        if (! $userAccount) {
+            throw ValidationException::withMessages(['id' => ['User not found.']]);
+        }
+        if (! filled($userAccount->email_address)) {
+            throw ValidationException::withMessages(['id' => ["This user's e-mail address is not set."]]);
+        }
+
+        $newPassword = $this->applyNewPassword($userAccount, $merchant, $actorId);
+        Mail::to($userAccount->email_address)->send(new MerchantPasswordResetMail($userAccount->user_name, $newPassword));
+
+        return ['username' => $userAccount->user_name, 'email' => $userAccount->email_address];
     }
 
     // ── Activate / deactivate ───────────────────────────────────────────────
 
     /**
+     * `client_status_id`: 0=active, 1=inactive (schema default, unused by
+     * any admin action), 2=deactivated via this admin action, -1=self-
+     * registered/never activated (see MerchantDashboardController). Was
+     * previously setting 1 instead of 2 on deactivate — a real bug, not a
+     * legacy quirk to replicate: the Merchant Management list's default
+     * view only shows `client_status_id` 0 or 2 (matching legacy's own
+     * `client_management.php` filter, see MerchantRegistrationService),
+     * so a merchant deactivated via this action was silently vanishing
+     * from that list entirely instead of showing as Inactive.
+     *
      * @throws ValidationException
      */
     public function toggleStatus(int $merchantId, string $actorId): array
     {
         $merchant = $this->findMerchantOrFail($merchantId);
-        $newStatus = (int) $merchant->client_status_id === 0 ? 1 : 0;
+        $newStatus = (int) $merchant->client_status_id === 0 ? 2 : 0;
 
         $merchant->update([
             'client_status_id' => $newStatus,

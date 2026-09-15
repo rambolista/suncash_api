@@ -601,6 +601,8 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/reset-password', [MerchantOperationsController::class, 'resetPassword']);
                 Route::get('/users', [MerchantOperationsController::class, 'listUsers']);
                 Route::post('/users', [MerchantOperationsController::class, 'addUser']);
+                Route::put('/users/{userId}', [MerchantOperationsController::class, 'updateUser'])->whereNumber('userId');
+                Route::post('/users/{userId}/reset-password', [MerchantOperationsController::class, 'resetUserPassword'])->whereNumber('userId');
                 Route::post('/toggle-status', [MerchantOperationsController::class, 'toggleStatus']);
                 Route::get('/ezpay-access', [MerchantOperationsController::class, 'showEzpayAccess']);
                 Route::put('/ezpay-access', [MerchantOperationsController::class, 'updateEzpayAccess']);
