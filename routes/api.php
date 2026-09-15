@@ -51,6 +51,8 @@ use App\Http\Controllers\Api\Kiosk\KioskBranchController;
 use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalController;
+use App\Http\Controllers\Api\Kiosk\KioskCashManagementController;
+use App\Http\Controllers\Api\Kiosk\KioskDepositsAdjustmentsController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
 use App\Http\Controllers\Api\Kiosk\KioskMonitoringController;
@@ -507,6 +509,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{transactionId}', [KioskCommissionApprovalController::class, 'show']);
         Route::post('/{transactionId}/approve', [KioskCommissionApprovalController::class, 'approve']);
         Route::post('/{transactionId}/reject', [KioskCommissionApprovalController::class, 'reject']);
+    });
+
+    Route::prefix('kiosk-deposits-adjustments')->group(function () {
+        Route::get('/', [KioskDepositsAdjustmentsController::class, 'index']);
+        Route::get('/export', [KioskDepositsAdjustmentsController::class, 'export']);
+        Route::get('/terminals/{id}', [KioskDepositsAdjustmentsController::class, 'showTerminal'])->whereNumber('id');
+        Route::get('/terminals/{id}/transactions', [KioskDepositsAdjustmentsController::class, 'transactions'])->whereNumber('id');
+        Route::get('/terminals/{id}/export', [KioskDepositsAdjustmentsController::class, 'exportTerminal'])->whereNumber('id');
+        Route::post('/terminals/{id}/adjust', [KioskDepositsAdjustmentsController::class, 'adjust'])->whereNumber('id');
+    });
+
+    Route::prefix('kiosk-cash-management')->group(function () {
+        Route::get('/', [KioskCashManagementController::class, 'index']);
+        Route::get('/banks', [KioskCashManagementController::class, 'banks']);
+        Route::post('/receipts', [KioskCashManagementController::class, 'uploadReceipt']);
+        Route::get('/{id}', [KioskCashManagementController::class, 'show'])->whereNumber('id');
+        Route::post('/{id}/confirm', [KioskCashManagementController::class, 'confirm'])->whereNumber('id');
+        Route::post('/{id}/delete', [KioskCashManagementController::class, 'destroy'])->whereNumber('id');
     });
 
     Route::prefix('kiosk-replenish-reports')->group(function () {
