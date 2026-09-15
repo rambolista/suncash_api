@@ -29,6 +29,7 @@ class MerchantPosUserService
             'last_name' => $user->last_name,
             'username' => $user->user_name,
             'branch_id' => $user->branch_id,
+            'branch_name' => $user->branch ? "{$user->branch->branch_code} — {$user->branch->description}" : null,
             'branch_user_type_id' => $user->branch_user_type_id,
             'branch_user_type' => MerchantTerminalUser::BRANCH_USER_TYPES[(int) $user->branch_user_type_id] ?? null,
             'application_access' => $user->application_access,
@@ -45,6 +46,7 @@ class MerchantPosUserService
             ->where(function ($query) {
                 $query->whereNull('user_subtype')->orWhere('user_subtype', '');
             })
+            ->with('branch')
             ->orderBy('creation_date')
             ->get()
             ->map(fn (MerchantTerminalUser $user) => $this->present($user))
