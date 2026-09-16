@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\Kyc;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Mysuncash\Customer;
 use App\Services\Kyc\KycUpgradeService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -15,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KycUpgradeController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/customers/kyc-upgrade';
 
     private const STATUS_BY_TAB = [
@@ -81,29 +83,7 @@ class KycUpgradeController extends Controller
 
         ActivityLog::recordAction($request->user(), 'KYC Upgrade', 'exported', 'Exported KYC Upgrade list ('.($tab ?: 'all').' tab, '.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            return Pdf::loadView('reports.table', [
-                'title' => 'KYC Upgrade — '.ucfirst($tab ?: 'all'),
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => $tab ? ['status' => $tab] : [],
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'landscape')->download('kyc-upgrade-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kyc-upgrade-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'KYC Upgrade — '.ucfirst($tab ?: 'all'), 'kyc-upgrade', $tab ? ['status' => $tab] : [], maxPdfRows: null);
     }
 
     public function approve(Request $request, int $id): JsonResponse

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Kiosk;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Kiosk\KioskCommissionApprovalService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskCommissionApprovalController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/kiosk/commission-approval';
 
     private const LIST_COLUMNS = [
@@ -148,37 +150,9 @@ class KioskCommissionApprovalController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Kiosk Commission Approval', 'exported', 'Exported Kiosk Commission Approval ('.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            $maxPdfRows = 1000;
-            $truncated = count($rows) > $maxPdfRows;
-            $pdfRows = $truncated ? array_slice($rows, 0, $maxPdfRows) : $rows;
-
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => 'Kiosk Commission Approval',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => [
-                    'Month' => $f['month'],
-                    'Year' => $f['year'],
-                ],
-                'columns' => self::LIST_COLUMNS,
-                'rows' => $pdfRows,
-                'totalCount' => count($rows),
-                'truncated' => $truncated,
-            ])->setPaper('a4', 'landscape')->download('kiosk-commission-approval-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kiosk-commission-approval-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column(self::LIST_COLUMNS, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', self::LIST_COLUMNS));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, self::LIST_COLUMNS, $rows, 'Kiosk Commission Approval', 'kiosk-commission-approval', [
+            'Month' => $f['month'],
+            'Year' => $f['year'],
+        ]);
     }
 }

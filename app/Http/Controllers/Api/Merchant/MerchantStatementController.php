@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\Merchant;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantMoneyService;
 use App\Services\Merchant\MerchantStatementService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -15,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MerchantStatementController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/merchants/statement';
 
     public const COLUMNS = [
@@ -96,40 +98,7 @@ class MerchantStatementController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Merchant Statement', 'exported', 'Exported statement for '.$data['merchant']['dba_name']." ({$dateFrom} to {$dateTo}, ".strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            // Unlike Settlements/Billpay (bounded to an approval queue), a statement's
-            // row count is driven by an arbitrary admin-picked date range and can span
-            // years of ledger history — dompdf renders the whole table in memory, so a
-            // wide range can exhaust the default limit. Cap the PDF and raise headroom
-            // for what's rendered; CSV (streamed) has no such ceiling.
-            $maxPdfRows = 1000;
-            $truncated = count($rows) > $maxPdfRows;
-            $pdfRows = $truncated ? array_slice($rows, 0, $maxPdfRows) : $rows;
-
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => 'Merchant Statement — '.$data['merchant']['dba_name'],
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => ['date_from' => $dateFrom, 'date_to' => $dateTo],
-                'columns' => $columns,
-                'rows' => $pdfRows,
-                'totalCount' => count($rows),
-                'truncated' => $truncated,
-            ])->setPaper('a4', 'landscape')->download('merchant-statement-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'merchant-statement-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Merchant Statement — '.$data['merchant']['dba_name'], 'merchant-statement', ['date_from' => $dateFrom, 'date_to' => $dateTo]);
     }
 
     public function adjustment(Request $request, int $id): JsonResponse

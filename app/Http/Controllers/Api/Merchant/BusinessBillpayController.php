@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Merchant;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Merchant\BusinessBillpayService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BusinessBillpayController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/merchants/business-billpay';
 
     public function __construct(private readonly BusinessBillpayService $billpay) {}
@@ -55,29 +57,7 @@ class BusinessBillpayController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Business Billpay', 'exported', 'Exported Business Billpay list ('.($status ?: 'all').' status, '.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            return Pdf::loadView('reports.table', [
-                'title' => 'Business Billpay',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['status' => $status]),
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'landscape')->download('business-billpay-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'business-billpay-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Business Billpay', 'business-billpay', array_filter(['status' => $status]), maxPdfRows: null);
     }
 
     public function show(Request $request, int $id): JsonResponse

@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\MerchantType;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Mysuncash\Merchant;
 use App\Services\MerchantType\CharityManagementService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -15,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CharityManagementController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/merchants/charity-management';
 
     public function __construct(private readonly CharityManagementService $charity) {}
@@ -142,28 +144,6 @@ class CharityManagementController extends Controller
         $columns = CharityManagementService::COLUMNS;
         $rows = $this->charity->exportRows($status);
 
-        if ($format === 'pdf') {
-            return Pdf::loadView('reports.table', [
-                'title' => 'Charity Management',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['status' => $status]),
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'landscape')->download('charity-management-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'charity-management-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Charity Management', 'charity-management', array_filter(['status' => $status]), maxPdfRows: null);
     }
 }

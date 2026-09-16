@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Kiosk;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Kiosk\KioskStatementService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskStatementController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/kiosk/statement';
 
     public const BALANCE_COLUMNS = [
@@ -105,35 +107,7 @@ class KioskStatementController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Kiosk Statement', 'exported', 'Exported kiosk statement balance report ('.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            $maxPdfRows = 1000;
-            $truncated = count($rows) > $maxPdfRows;
-            $pdfRows = $truncated ? array_slice($rows, 0, $maxPdfRows) : $rows;
-
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => 'Kiosk Statement Balance Report',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['branch_id' => $branchId, 'terminal_id' => $terminalId]),
-                'columns' => $columns,
-                'rows' => $pdfRows,
-                'totalCount' => count($rows),
-                'truncated' => $truncated,
-            ])->setPaper('a4', 'landscape')->download('kiosk-statement-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kiosk-statement-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Kiosk Statement Balance Report', 'kiosk-statement', array_filter(['branch_id' => $branchId, 'terminal_id' => $terminalId]));
     }
 
     public function exportLedger(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
@@ -157,34 +131,6 @@ class KioskStatementController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Kiosk Statement', 'exported', "Exported ledger for kiosk terminal {$data['terminal']['code']} ({$dateFrom} to {$dateTo}, ".strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            $maxPdfRows = 1000;
-            $truncated = count($rows) > $maxPdfRows;
-            $pdfRows = $truncated ? array_slice($rows, 0, $maxPdfRows) : $rows;
-
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => 'Kiosk Statement — '.$data['terminal']['name'],
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => ['date_from' => $dateFrom, 'date_to' => $dateTo],
-                'columns' => $columns,
-                'rows' => $pdfRows,
-                'totalCount' => count($rows),
-                'truncated' => $truncated,
-            ])->setPaper('a4', 'landscape')->download('kiosk-statement-ledger-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kiosk-statement-ledger-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Kiosk Statement — '.$data['terminal']['name'], 'kiosk-statement-ledger', ['date_from' => $dateFrom, 'date_to' => $dateTo]);
     }
 }

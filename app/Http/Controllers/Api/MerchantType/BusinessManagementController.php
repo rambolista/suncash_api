@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\MerchantType;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Mysuncash\Merchant;
 use App\Services\MerchantType\BusinessManagementService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -15,6 +15,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BusinessManagementController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/merchants/business-management';
 
     public function __construct(private readonly BusinessManagementService $business) {}
@@ -142,28 +144,6 @@ class BusinessManagementController extends Controller
         $columns = BusinessManagementService::COLUMNS;
         $rows = $this->business->exportRows($status);
 
-        if ($format === 'pdf') {
-            return Pdf::loadView('reports.table', [
-                'title' => 'Business Management',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['status' => $status]),
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'landscape')->download('business-management-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'business-management-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Business Management', 'business-management', array_filter(['status' => $status]), maxPdfRows: null);
     }
 }

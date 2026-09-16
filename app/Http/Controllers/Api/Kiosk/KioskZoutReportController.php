@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Kiosk;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Kiosk\KioskZoutReportService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskZoutReportController extends Controller
 {
+    use ExportsTabularReports;
+
     /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
     protected const MODULE_PATH = '/kiosk/reports';
 
@@ -92,34 +94,6 @@ class KioskZoutReportController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Kiosk Zout Reports', 'exported', 'Exported kiosk zout report ('.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            $maxPdfRows = 1000;
-            $truncated = count($rows) > $maxPdfRows;
-            $pdfRows = $truncated ? array_slice($rows, 0, $maxPdfRows) : $rows;
-
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => 'Kiosk Zout Report',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['branch_id' => $branchId, 'location' => $location, 'date' => $date]),
-                'columns' => $columns,
-                'rows' => $pdfRows,
-                'totalCount' => count($rows),
-                'truncated' => $truncated,
-            ])->setPaper('a4', 'landscape')->download('kiosk-zout-report-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kiosk-zout-report-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Kiosk Zout Report', 'kiosk-zout-report', array_filter(['branch_id' => $branchId, 'location' => $location, 'date' => $date]));
     }
 }

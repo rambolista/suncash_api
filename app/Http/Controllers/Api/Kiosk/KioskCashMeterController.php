@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Kiosk;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Kiosk\KioskCashMeterService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,6 +13,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskCashMeterController extends Controller
 {
+    use ExportsTabularReports;
+
     /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
     protected const MODULE_PATH = '/kiosk/reports';
 
@@ -129,30 +131,6 @@ class KioskCashMeterController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Kiosk Cash Meters', 'exported', "Exported Kiosk Cash Meters ({$typeLabel}, ".strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => "Kiosk Cash Meters — {$typeLabel}",
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => [],
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'portrait')->download('kiosk-cash-meters-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kiosk-cash-meters-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, "Kiosk Cash Meters — {$typeLabel}", 'kiosk-cash-meters', maxPdfRows: null, orientation: 'portrait');
     }
 }

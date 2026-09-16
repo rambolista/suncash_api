@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Merchant;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Merchant\MerchantSettlementService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MerchantSettlementController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/merchants/settlements';
 
     public function __construct(private readonly MerchantSettlementService $settlements) {}
@@ -55,29 +57,7 @@ class MerchantSettlementController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Merchant Settlements', 'exported', 'Exported Merchant Settlements list ('.($status ?: 'all').' status, '.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            return Pdf::loadView('reports.table', [
-                'title' => 'Merchant Settlements',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['status' => $status]),
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'landscape')->download('merchant-settlements-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'merchant-settlements-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Merchant Settlements', 'merchant-settlements', array_filter(['status' => $status]), maxPdfRows: null);
     }
 
     public function show(Request $request, int $id): JsonResponse

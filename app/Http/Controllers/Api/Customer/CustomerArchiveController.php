@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\Customer;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Services\Customer\CustomerArchiveService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,6 +13,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CustomerArchiveController extends Controller
 {
+    use ExportsTabularReports;
+
     protected const MODULE_PATH = '/customers/archive';
 
     public function __construct(private readonly CustomerArchiveService $archive) {}
@@ -92,29 +94,7 @@ class CustomerArchiveController extends Controller
 
         $columns = CustomerArchiveService::COLUMNS;
 
-        if ($format === 'pdf') {
-            return Pdf::loadView('reports.table', [
-                'title' => 'Customer Transaction History',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => array_filter(['from' => $from, 'to' => $to]),
-                'columns' => $columns,
-                'rows' => $rows,
-                'totalCount' => count($rows),
-                'truncated' => false,
-            ])->setPaper('a4', 'landscape')->download('customer-transactions-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'customer-transactions-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows, $columns) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column($columns, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, $columns, $rows, 'Customer Transaction History', 'customer-transactions', array_filter(['from' => $from, 'to' => $to]), maxPdfRows: null);
     }
 
     public function archive(Request $request, int $id): JsonResponse

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api\Kiosk;
 
+use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Services\Kiosk\KioskTransactionReportService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,6 +13,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskTransactionReportController extends Controller
 {
+    use ExportsTabularReports;
+
     /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
     protected const MODULE_PATH = '/kiosk/reports';
 
@@ -79,37 +81,9 @@ class KioskTransactionReportController extends Controller
 
         ActivityLog::recordAction($request->user(), 'Kiosk Transaction Report', 'exported', 'Exported Kiosk Transaction Report ('.strtoupper($format).', '.count($rows).' rows)', null, $request);
 
-        if ($format === 'pdf') {
-            $maxPdfRows = 1000;
-            $truncated = count($rows) > $maxPdfRows;
-            $pdfRows = $truncated ? array_slice($rows, 0, $maxPdfRows) : $rows;
-
-            ini_set('memory_limit', '-1');
-
-            return Pdf::loadView('reports.table', [
-                'title' => 'Kiosk Transaction Report',
-                'generatedBy' => $request->user()?->name ?? $request->user()?->email ?? 'system',
-                'generatedAt' => now()->toDayDateTimeString(),
-                'filters' => [
-                    'Date From' => $f['date_from'],
-                    'Date To' => $f['date_to'],
-                ],
-                'columns' => self::LIST_COLUMNS,
-                'rows' => $pdfRows,
-                'totalCount' => count($rows),
-                'truncated' => $truncated,
-            ])->setPaper('a4', 'landscape')->download('kiosk-transaction-report-'.now()->format('Ymd-His').'.pdf');
-        }
-
-        $filename = 'kiosk-transaction-report-'.now()->format('Ymd-His').'.csv';
-
-        return response()->streamDownload(function () use ($rows) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, array_column(self::LIST_COLUMNS, 'label'));
-            foreach ($rows as $row) {
-                fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', self::LIST_COLUMNS));
-            }
-            fclose($handle);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        return $this->exportTabularReport($request, $format, self::LIST_COLUMNS, $rows, 'Kiosk Transaction Report', 'kiosk-transaction-report', [
+            'Date From' => $f['date_from'],
+            'Date To' => $f['date_to'],
+        ]);
     }
 }
