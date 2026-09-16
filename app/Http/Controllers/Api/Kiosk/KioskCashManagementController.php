@@ -13,17 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class KioskCashManagementController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/cash-management';
+    protected const MODULE_PATH = '/kiosk/cash-management';
 
     public function __construct(private readonly KioskCashManagementService $service)
     {
-    }
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
     }
 
     private function invalid(ValidationException $exception): JsonResponse

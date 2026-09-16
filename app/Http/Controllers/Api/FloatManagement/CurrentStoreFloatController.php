@@ -11,16 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class CurrentStoreFloatController extends Controller
 {
-    private const MODULE_PATH = '/float-management/current-store-float-amounts';
+    protected const MODULE_PATH = '/float-management/current-store-float-amounts';
 
     public function __construct(private readonly StoreFloatAccountService $storeFloat) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

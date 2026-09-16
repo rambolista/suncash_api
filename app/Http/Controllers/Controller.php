@@ -4,9 +4,34 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Support\MenuPermissions;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 abstract class Controller
 {
+    /**
+     * Module-level permission gate — every controller redefined this
+     * identically against its own `MODULE_PATH` constant, so it now lives
+     * once here. Requires the subclass to declare `protected const MODULE_PATH`.
+     */
+    protected function forbidden(Request $request, string $action): ?JsonResponse
+    {
+        return $this->userHasPermission($request->user(), static::MODULE_PATH, $action)
+            ? null
+            : response()->json(['message' => 'Forbidden.'], 403);
+    }
+
+    /**
+     * Tab-level counterpart of forbidden() — requires the subclass to also
+     * declare `protected const TAB_KEY`.
+     */
+    protected function forbiddenTab(Request $request, string $action): ?JsonResponse
+    {
+        return $this->userHasTabPermission($request->user(), static::MODULE_PATH, static::TAB_KEY, $action)
+            ? null
+            : response()->json(['message' => 'Forbidden.'], 403);
+    }
+
     protected function buildMenuPermissionsPayload(object $user): array
     {
         if (! $user instanceof User) {

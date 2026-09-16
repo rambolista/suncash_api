@@ -11,16 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class MainReserveAccountController extends Controller
 {
-    private const MODULE_PATH = '/float-management/main-reserve-account';
+    protected const MODULE_PATH = '/float-management/main-reserve-account';
 
     public function __construct(private readonly MainReserveAccountService $mainReserve) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

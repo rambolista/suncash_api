@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class KioskBranchController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/management';
+    protected const MODULE_PATH = '/kiosk/management';
 
     public function __construct(private readonly KioskBranchService $branches) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

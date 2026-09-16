@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerAppSettingController extends Controller
 {
-    private const MODULE_PATH = '/settings/customer-app';
+    protected const MODULE_PATH = '/settings/customer-app';
 
     public function __construct(private readonly CustomerAppSettingService $settings) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     public function index(Request $request): JsonResponse
     {

@@ -11,16 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class KioskCommissionProfileController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/commission-profiles';
+    protected const MODULE_PATH = '/kiosk/commission-profiles';
 
     public function __construct(private readonly KioskCommissionProfileService $profiles) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

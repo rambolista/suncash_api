@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class CardVerificationController extends Controller
 {
-    private const MODULE_PATH = '/customers/card-verification';
+    protected const MODULE_PATH = '/customers/card-verification';
 
     public function __construct(private readonly CardVerificationService $cards) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

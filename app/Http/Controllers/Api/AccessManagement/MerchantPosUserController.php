@@ -12,17 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class MerchantPosUserController extends Controller
 {
-    private const MODULE_PATH = '/merchants/registration';
+    protected const MODULE_PATH = '/merchants/registration';
+    protected const TAB_KEY = 'pos-users';
 
     public function __construct(private readonly MerchantPosUserService $posUsers)
     {
-    }
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, 'pos-users', $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
     }
 
     private function invalid(ValidationException $exception): JsonResponse
@@ -37,7 +31,7 @@ class MerchantPosUserController extends Controller
 
     public function index(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -54,7 +48,7 @@ class MerchantPosUserController extends Controller
 
     public function store(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 
@@ -71,7 +65,7 @@ class MerchantPosUserController extends Controller
 
     public function update(Request $request, int $id, int $userId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 
@@ -88,7 +82,7 @@ class MerchantPosUserController extends Controller
 
     public function destroy(Request $request, int $id, int $userId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 

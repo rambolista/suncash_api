@@ -14,16 +14,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MerchantSettlementController extends Controller
 {
-    private const MODULE_PATH = '/merchants/settlements';
+    protected const MODULE_PATH = '/merchants/settlements';
 
     public function __construct(private readonly MerchantSettlementService $settlements) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

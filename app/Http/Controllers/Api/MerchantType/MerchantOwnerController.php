@@ -13,16 +13,9 @@ use Illuminate\Validation\ValidationException;
 /** Owners/directors CRUD, nested under a Business's Initial Info screen — same permission scope as Business Management. */
 class MerchantOwnerController extends Controller
 {
-    private const MODULE_PATH = '/merchants/business-management';
+    protected const MODULE_PATH = '/merchants/business-management';
 
     public function __construct(private readonly MerchantOwnerService $owners) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

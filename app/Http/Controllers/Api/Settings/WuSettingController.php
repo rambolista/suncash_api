@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class WuSettingController extends Controller
 {
-    private const MODULE_PATH = '/settings/wu';
+    protected const MODULE_PATH = '/settings/wu';
 
     public function __construct(private readonly WuSettingService $settings) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     public function index(Request $request): JsonResponse
     {

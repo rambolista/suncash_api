@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class GeoPromoController extends Controller
 {
-    private const MODULE_PATH = '/promotions/signup';
+    protected const MODULE_PATH = '/promotions/signup';
 
     public function __construct(private readonly GeoPromoService $geoPromos) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

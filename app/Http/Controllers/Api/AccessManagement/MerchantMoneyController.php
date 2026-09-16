@@ -17,7 +17,7 @@ class MerchantMoneyController extends Controller
     {
     }
 
-    private function forbidden(Request $request, string $tabKey, string $action): ?JsonResponse
+    private function forbiddenForTab(Request $request, string $tabKey, string $action): ?JsonResponse
     {
         return $this->userHasTabPermission($request->user(), self::MODULE_PATH, $tabKey, $action)
             ? null
@@ -38,7 +38,7 @@ class MerchantMoneyController extends Controller
 
     public function adjustPrefund(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'prefund', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'prefund', 'can_edit')) {
             return $response;
         }
 
@@ -63,7 +63,7 @@ class MerchantMoneyController extends Controller
 
     public function showAutoReplenish(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'auto-replenish', 'can_view')) {
+        if ($response = $this->forbiddenForTab($request, 'auto-replenish', 'can_view')) {
             return $response;
         }
 
@@ -76,7 +76,7 @@ class MerchantMoneyController extends Controller
 
     public function updateAutoReplenish(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'auto-replenish', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'auto-replenish', 'can_edit')) {
             return $response;
         }
 
@@ -95,7 +95,7 @@ class MerchantMoneyController extends Controller
 
     public function showAgentCommission(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'agent-commission', 'can_view')) {
+        if ($response = $this->forbiddenForTab($request, 'agent-commission', 'can_view')) {
             return $response;
         }
 
@@ -112,7 +112,7 @@ class MerchantMoneyController extends Controller
 
     public function updateAgentCommission(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'agent-commission', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'agent-commission', 'can_edit')) {
             return $response;
         }
 
@@ -129,7 +129,7 @@ class MerchantMoneyController extends Controller
 
     public function addAgentCommissionEmail(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'agent-commission', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'agent-commission', 'can_edit')) {
             return $response;
         }
 
@@ -146,7 +146,7 @@ class MerchantMoneyController extends Controller
 
     public function updateAgentCommissionEmail(Request $request, int $id, int $emailId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'agent-commission', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'agent-commission', 'can_edit')) {
             return $response;
         }
 
@@ -163,7 +163,7 @@ class MerchantMoneyController extends Controller
 
     public function deleteAgentCommissionEmail(Request $request, int $id, int $emailId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'agent-commission', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'agent-commission', 'can_edit')) {
             return $response;
         }
 

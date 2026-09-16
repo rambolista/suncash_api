@@ -15,16 +15,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CharityManagementController extends Controller
 {
-    private const MODULE_PATH = '/merchants/charity-management';
+    protected const MODULE_PATH = '/merchants/charity-management';
 
     public function __construct(private readonly CharityManagementService $charity) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

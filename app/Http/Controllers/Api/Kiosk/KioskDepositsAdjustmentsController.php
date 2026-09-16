@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KioskDepositsAdjustmentsController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/deposits-and-adjustments';
+    protected const MODULE_PATH = '/kiosk/deposits-and-adjustments';
 
     private const LIST_COLUMNS = [
         ['key' => 'kiosk_terminal', 'label' => 'Kiosk'],
@@ -29,13 +29,6 @@ class KioskDepositsAdjustmentsController extends Controller
 
     public function __construct(private readonly KioskDepositsAdjustmentsService $service)
     {
-    }
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
     }
 
     private function invalid(ValidationException $exception): JsonResponse

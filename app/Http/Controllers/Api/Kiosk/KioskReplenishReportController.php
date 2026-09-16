@@ -14,9 +14,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class KioskReplenishReportController extends Controller
 {
     /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
-    private const MODULE_PATH = '/kiosk/reports';
+    protected const MODULE_PATH = '/kiosk/reports';
 
-    private const TAB_KEY = 'replenish';
+    protected const TAB_KEY = 'replenish';
 
     private const LIST_COLUMNS = [
         ['key' => 'replenishment_date', 'label' => 'Replenishment Date'],
@@ -46,16 +46,9 @@ class KioskReplenishReportController extends Controller
 
     public function __construct(private readonly KioskReplenishReportService $reports) {}
 
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, self::TAB_KEY, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
-
     public function index(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -77,7 +70,7 @@ class KioskReplenishReportController extends Controller
 
     public function terminals(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -91,7 +84,7 @@ class KioskReplenishReportController extends Controller
 
     public function meter(Request $request, int $terminalId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -100,7 +93,7 @@ class KioskReplenishReportController extends Controller
 
     public function addCash(Request $request, int $terminalId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -109,7 +102,7 @@ class KioskReplenishReportController extends Controller
 
     public function clearAcceptor(Request $request, int $terminalId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -155,7 +148,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportList(Request $request): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_export')) {
+        if ($response = $this->forbiddenTab($request, 'can_export')) {
             return $response;
         }
 
@@ -167,7 +160,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportMeter(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_export')) {
+        if ($response = $this->forbiddenTab($request, 'can_export')) {
             return $response;
         }
 
@@ -182,7 +175,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportAddCash(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_export')) {
+        if ($response = $this->forbiddenTab($request, 'can_export')) {
             return $response;
         }
 
@@ -197,7 +190,7 @@ class KioskReplenishReportController extends Controller
 
     public function exportClearAcceptor(Request $request, int $terminalId): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_export')) {
+        if ($response = $this->forbiddenTab($request, 'can_export')) {
             return $response;
         }
 

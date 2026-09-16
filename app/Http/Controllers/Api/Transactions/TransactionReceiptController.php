@@ -12,16 +12,9 @@ use Illuminate\Validation\ValidationException;
 
 class TransactionReceiptController extends Controller
 {
-    private const MODULE_PATH = '/transactions/resend-receipt';
+    protected const MODULE_PATH = '/transactions/resend-receipt';
 
     public function __construct(private readonly TransactionReceiptService $receipts) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

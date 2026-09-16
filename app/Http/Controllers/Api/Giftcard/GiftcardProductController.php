@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class GiftcardProductController extends Controller
 {
-    private const MODULE_PATH = '/giftcards/products';
+    protected const MODULE_PATH = '/giftcards/products';
 
     public function __construct(private readonly GiftcardProductService $products) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class NotificationSettingController extends Controller
 {
-    private const MODULE_PATH = '/settings/notifications';
+    protected const MODULE_PATH = '/settings/notifications';
 
     public function __construct(private readonly NotificationSettingService $notifications) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

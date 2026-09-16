@@ -14,22 +14,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class KioskCashMeterController extends Controller
 {
     /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
-    private const MODULE_PATH = '/kiosk/reports';
+    protected const MODULE_PATH = '/kiosk/reports';
 
-    private const TAB_KEY = 'cash_meters';
+    protected const TAB_KEY = 'cash_meters';
 
     public function __construct(private readonly KioskCashMeterService $cashMeters) {}
 
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, self::TAB_KEY, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
-
     public function index(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -42,7 +35,7 @@ class KioskCashMeterController extends Controller
 
     public function terminals(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -65,7 +58,7 @@ class KioskCashMeterController extends Controller
 
     public function meters(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -115,7 +108,7 @@ class KioskCashMeterController extends Controller
 
     public function export(Request $request): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_export')) {
+        if ($response = $this->forbiddenTab($request, 'can_export')) {
             return $response;
         }
 

@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KycUpgradeController extends Controller
 {
-    private const MODULE_PATH = '/customers/kyc-upgrade';
+    protected const MODULE_PATH = '/customers/kyc-upgrade';
 
     private const STATUS_BY_TAB = [
         'pending' => Customer::ACCESS_PENDING,
@@ -24,13 +24,6 @@ class KycUpgradeController extends Controller
     ];
 
     public function __construct(private readonly KycUpgradeService $kyc) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

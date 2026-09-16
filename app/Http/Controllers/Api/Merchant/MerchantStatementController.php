@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MerchantStatementController extends Controller
 {
-    private const MODULE_PATH = '/merchants/statement';
+    protected const MODULE_PATH = '/merchants/statement';
 
     public const COLUMNS = [
         ['key' => 'timestamp', 'label' => 'Timestamp'],
@@ -32,13 +32,6 @@ class MerchantStatementController extends Controller
         private readonly MerchantStatementService $statements,
         private readonly MerchantMoneyService $merchantMoney,
     ) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

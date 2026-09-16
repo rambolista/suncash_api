@@ -14,16 +14,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BusinessBillpayController extends Controller
 {
-    private const MODULE_PATH = '/merchants/business-billpay';
+    protected const MODULE_PATH = '/merchants/business-billpay';
 
     public function __construct(private readonly BusinessBillpayService $billpay) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {

@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerDocumentController extends Controller
 {
-    private const MODULE_PATH = '/customers/documents';
+    protected const MODULE_PATH = '/customers/documents';
 
     public function __construct(private readonly CustomerDocumentService $documents) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     public function index(Request $request): JsonResponse
     {

@@ -15,9 +15,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class KioskCommissionReportController extends Controller
 {
     /** Consolidated under the "Kiosk > Reports" tabbed page — permission is gated per-tab (see `menu_tabs`), not on the parent menu. */
-    private const MODULE_PATH = '/kiosk/reports';
+    protected const MODULE_PATH = '/kiosk/reports';
 
-    private const TAB_KEY = 'commission';
+    protected const TAB_KEY = 'commission';
 
     private const LIST_COLUMNS = [
         ['key' => 'datetime', 'label' => 'Date/Time'],
@@ -37,13 +37,6 @@ class KioskCommissionReportController extends Controller
 
     public function __construct(private readonly KioskCommissionReportService $reports) {}
 
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, self::TAB_KEY, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
-
     private function filtersFromRequest(Request $request): array
     {
         $today = now()->toDateString();
@@ -59,7 +52,7 @@ class KioskCommissionReportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -76,7 +69,7 @@ class KioskCommissionReportController extends Controller
 
     public function export(Request $request): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request, 'can_export')) {
+        if ($response = $this->forbiddenTab($request, 'can_export')) {
             return $response;
         }
 

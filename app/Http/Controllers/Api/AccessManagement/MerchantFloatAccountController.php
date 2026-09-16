@@ -11,17 +11,11 @@ use Illuminate\Validation\ValidationException;
 
 class MerchantFloatAccountController extends Controller
 {
-    private const MODULE_PATH = '/merchants/registration';
+    protected const MODULE_PATH = '/merchants/registration';
+    protected const TAB_KEY = 'float-account';
 
     public function __construct(private readonly MerchantFloatAccountService $floatAccounts)
     {
-    }
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, 'float-account', $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
     }
 
     private function invalid(ValidationException $exception): JsonResponse
@@ -36,7 +30,7 @@ class MerchantFloatAccountController extends Controller
 
     public function show(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -49,7 +43,7 @@ class MerchantFloatAccountController extends Controller
 
     public function toggle(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 
@@ -66,7 +60,7 @@ class MerchantFloatAccountController extends Controller
 
     public function request(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 
@@ -83,7 +77,7 @@ class MerchantFloatAccountController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 

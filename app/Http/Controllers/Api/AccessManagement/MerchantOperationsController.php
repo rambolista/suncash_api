@@ -17,7 +17,7 @@ class MerchantOperationsController extends Controller
     {
     }
 
-    private function forbidden(Request $request, string $tabKey, string $action): ?JsonResponse
+    private function forbiddenForTab(Request $request, string $tabKey, string $action): ?JsonResponse
     {
         return $this->userHasTabPermission($request->user(), self::MODULE_PATH, $tabKey, $action)
             ? null
@@ -46,7 +46,7 @@ class MerchantOperationsController extends Controller
 
     public function showPrincipalInfo(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'principal-info', 'can_view')) {
+        if ($response = $this->forbiddenForTab($request, 'principal-info', 'can_view')) {
             return $response;
         }
 
@@ -55,7 +55,7 @@ class MerchantOperationsController extends Controller
 
     public function savePrincipalInfo(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'principal-info', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'principal-info', 'can_edit')) {
             return $response;
         }
 
@@ -96,7 +96,7 @@ class MerchantOperationsController extends Controller
 
     public function listUsers(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'user-management', 'can_view')) {
+        if ($response = $this->forbiddenForTab($request, 'user-management', 'can_view')) {
             return $response;
         }
 
@@ -108,7 +108,7 @@ class MerchantOperationsController extends Controller
 
     public function addUser(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'user-management', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'user-management', 'can_edit')) {
             return $response;
         }
 
@@ -125,7 +125,7 @@ class MerchantOperationsController extends Controller
 
     public function updateUser(Request $request, int $id, int $userId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'user-management', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'user-management', 'can_edit')) {
             return $response;
         }
 
@@ -142,7 +142,7 @@ class MerchantOperationsController extends Controller
 
     public function resetUserPassword(Request $request, int $id, int $userId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'user-management', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'user-management', 'can_edit')) {
             return $response;
         }
 
@@ -185,7 +185,7 @@ class MerchantOperationsController extends Controller
 
     public function showEzpayAccess(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'ezpay-access', 'can_view')) {
+        if ($response = $this->forbiddenForTab($request, 'ezpay-access', 'can_view')) {
             return $response;
         }
 
@@ -197,7 +197,7 @@ class MerchantOperationsController extends Controller
 
     public function updateEzpayAccess(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'ezpay-access', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'ezpay-access', 'can_edit')) {
             return $response;
         }
 
@@ -216,7 +216,7 @@ class MerchantOperationsController extends Controller
 
     public function listServices(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'services-permission', 'can_view')) {
+        if ($response = $this->forbiddenForTab($request, 'services-permission', 'can_view')) {
             return $response;
         }
 
@@ -225,7 +225,7 @@ class MerchantOperationsController extends Controller
 
     public function updateServices(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'services-permission', 'can_edit')) {
+        if ($response = $this->forbiddenForTab($request, 'services-permission', 'can_edit')) {
             return $response;
         }
 

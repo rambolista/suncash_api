@@ -13,19 +13,13 @@ use Illuminate\Validation\ValidationException;
 
 class MerchantTerminalController extends Controller
 {
-    private const MODULE_PATH = '/merchants/registration';
+    protected const MODULE_PATH = '/merchants/registration';
+    protected const TAB_KEY = 'terminals';
 
     public function __construct(
         private readonly MerchantTerminalService $terminals,
         private readonly MerchantBranchService $branches,
     ) {
-    }
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasTabPermission($request->user(), self::MODULE_PATH, 'terminals', $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
     }
 
     private function invalid(ValidationException $exception): JsonResponse
@@ -40,7 +34,7 @@ class MerchantTerminalController extends Controller
 
     public function index(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_view')) {
+        if ($response = $this->forbiddenTab($request, 'can_view')) {
             return $response;
         }
 
@@ -54,7 +48,7 @@ class MerchantTerminalController extends Controller
 
     public function store(Request $request, int $id): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 
@@ -71,7 +65,7 @@ class MerchantTerminalController extends Controller
 
     public function update(Request $request, int $id, int $terminalId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 
@@ -88,7 +82,7 @@ class MerchantTerminalController extends Controller
 
     public function changeStatus(Request $request, int $id, int $terminalId): JsonResponse
     {
-        if ($response = $this->forbidden($request, 'can_edit')) {
+        if ($response = $this->forbiddenTab($request, 'can_edit')) {
             return $response;
         }
 

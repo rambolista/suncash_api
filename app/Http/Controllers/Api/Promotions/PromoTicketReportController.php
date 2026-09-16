@@ -16,7 +16,7 @@ class PromoTicketReportController extends Controller
 
     public function __construct(private readonly PromoTicketReportService $reports) {}
 
-    private function forbidden(Request $request): ?JsonResponse
+    private function forbiddenView(Request $request): ?JsonResponse
     {
         if (! $this->userHasPermission($request->user(), self::MODULE_PATH, 'can_view')) {
             return response()->json(['message' => 'Forbidden.'], 403);
@@ -27,7 +27,7 @@ class PromoTicketReportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        if ($response = $this->forbidden($request)) {
+        if ($response = $this->forbiddenView($request)) {
             return $response;
         }
 
@@ -48,7 +48,7 @@ class PromoTicketReportController extends Controller
 
     public function export(Request $request): JsonResponse|StreamedResponse|Response
     {
-        if ($response = $this->forbidden($request)) {
+        if ($response = $this->forbiddenView($request)) {
             return $response;
         }
 

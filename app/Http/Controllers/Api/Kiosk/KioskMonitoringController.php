@@ -10,16 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class KioskMonitoringController extends Controller
 {
-    private const MODULE_PATH = '/kiosk/monitoring-dashboard';
+    protected const MODULE_PATH = '/kiosk/monitoring-dashboard';
 
     public function __construct(private readonly KioskMonitoringService $monitoring) {}
-
-    private function forbidden(Request $request, string $action): ?JsonResponse
-    {
-        return $this->userHasPermission($request->user(), self::MODULE_PATH, $action)
-            ? null
-            : response()->json(['message' => 'Forbidden.'], 403);
-    }
 
     private function invalid(ValidationException $exception): JsonResponse
     {
