@@ -27,7 +27,9 @@ class UserActivityService
         'logged_out' => 'Logged Out',
     ];
 
-    private function present(ActivityLog $log): array
+    public function __construct(private readonly IpGeolocationService $geolocation) {}
+
+    private function present(ActivityLog $log, array $countriesByIp): array
     {
         $changedFields = is_array($log->changes) ? array_keys($log->changes) : [];
 
@@ -43,6 +45,7 @@ class UserActivityService
             'description' => $log->description ?: ($changedFields ? 'Changed: '.implode(', ', $changedFields) : self::ACTION_LABELS[$log->action] ?? $log->action),
             'changes' => $log->changes,
             'ip_address' => $log->ip_address,
+            'location' => $log->ip_address ? ($countriesByIp[$log->ip_address] ?? null) : null,
             'created_at' => optional($log->created_at)->toIso8601String(),
         ];
     }
@@ -78,7 +81,9 @@ class UserActivityService
             });
         }
 
-        return $rows->map(fn (ActivityLog $log) => $this->present($log))->values()->all();
+        $countriesByIp = $this->geolocation->countriesFor($rows->pluck('ip_address')->filter()->all());
+
+        return $rows->map(fn (ActivityLog $log) => $this->present($log, $countriesByIp))->values()->all();
     }
 
     public function modules(): array
