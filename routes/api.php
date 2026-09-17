@@ -52,6 +52,7 @@ use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalController;
 use App\Http\Controllers\Api\Kiosk\KioskCashManagementController;
+use App\Http\Controllers\Api\Kiosk\KioskConfirmCustomerServiceController;
 use App\Http\Controllers\Api\Kiosk\KioskDepositsAdjustmentsController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionProfileController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionReportController;
@@ -528,6 +529,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [KioskCashManagementController::class, 'show'])->whereNumber('id');
         Route::post('/{id}/confirm', [KioskCashManagementController::class, 'confirm'])->whereNumber('id');
         Route::post('/{id}/delete', [KioskCashManagementController::class, 'destroy'])->whereNumber('id');
+    });
+
+    Route::prefix('kiosk-confirm-customer-service')->group(function () {
+        Route::get('/', [KioskConfirmCustomerServiceController::class, 'index']);
+        Route::get('/session/{sessionId}', [KioskConfirmCustomerServiceController::class, 'sessionLogs']);
     });
 
     Route::prefix('kiosk-replenish-reports')->group(function () {
