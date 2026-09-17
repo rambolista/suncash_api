@@ -27,7 +27,7 @@ use Illuminate\Validation\ValidationException;
  * Not replicated: legacy's `call_pos_api(...itemWinners)` push notification
  * to the separate POS/customer-app system — an external integration this
  * codebase has no credentials or established client for (same reasoning as
- * `InfobipSmsService`'s safety gate elsewhere in this app). The win is still
+ * `InfobipSmsGateway`'s safety gate elsewhere in this app). The win is still
  * fully recorded in `promo_winners`/`promo_entries`/`promo_items`, which is
  * what the customer-facing app actually reads.
  */

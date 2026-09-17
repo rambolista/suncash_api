@@ -64,6 +64,28 @@ return [
         'sender' => env('INFOBIP_SENDER', 'suncash'),
     ],
 
+    // SMS gateway alternative to Infobip — a Bahamas-carrier SOAP endpoint
+    // (newcomobile.com), legacy's "aliv" path in settings::send_sms(). Off
+    // by default, same reasoning as `infobip` above. Unrelated to the
+    // "Aliv" mobile-topup carrier used elsewhere in Kiosk billing.
+    'aliv_sms' => [
+        'enabled' => env('ALIV_SMS_ENABLED', false),
+        'endpoint' => env('ALIV_SMS_ENDPOINT', 'https://portalservice.newcomobile.com/TheListWebService.asmx?wsdl'),
+        'token' => env('ALIV_SMS_TOKEN'),
+    ],
+
+    // WhatsApp via Infobip — same account/API key as `infobip` above, just
+    // a different channel. Business-initiated sends must use a
+    // pre-approved template (Meta/WhatsApp policy), so `sender`/
+    // `template_name`/`language` have no defaults — they only exist once
+    // approved on the Infobip dashboard.
+    'whatsapp' => [
+        'enabled' => env('WHATSAPP_ENABLED', false),
+        'sender' => env('WHATSAPP_SENDER'),
+        'template_name' => env('WHATSAPP_TEMPLATE_NAME'),
+        'language' => env('WHATSAPP_TEMPLATE_LANGUAGE'),
+    ],
+
     // Kiosk > Voucher Pin Tool — decrypts merchant_vouchers/universal_vouchers.pin
     // (legacy VOUCHER_CRYPT_KEY / VOUCHER_IV constants, AES-128-CBC).
     'voucher' => [

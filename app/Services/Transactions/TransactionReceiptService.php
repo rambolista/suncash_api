@@ -7,7 +7,7 @@ use App\Models\Mysuncash\BusinessBillTransaction;
 use App\Models\Mysuncash\EzkardAccount;
 use App\Models\Mysuncash\EzkardTransaction;
 use App\Models\User;
-use App\Services\Notifications\InfobipSmsService;
+use App\Services\Notifications\Sms\SmsManager;
 use App\Services\Transactions\Support\TransactionRowFetcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -31,14 +31,19 @@ use Illuminate\Validation\ValidationException;
  *
  * Legacy's "Send Receipt" (`Tools::send_receipt_via_text()`) renders an HTML
  * receipt to a static file and TEXTS a link to it via `settings::send_sms()`
- * — a real Infobip Advanced SMS API call. That call IS ported
- * (`Services\Notifications\InfobipSmsService`), but gated behind
- * `services.infobip.enabled` (default OFF) so this codebase never actually
- * sends an SMS until a deployment turns it on with real production
- * credentials — matching every other SMS-notification feature this session,
- * just with the real integration wired up and ready instead of skipped
- * outright. Legacy's static-file receipt hosting is replaced with a signed,
- * unauthenticated PDF route (`receipts.show`) the SMS links to.
+ * — routed to Infobip or a Bahamas-carrier SOAP gateway ("Aliv") depending
+ * on the destination's country code. That's ported as pluggable gateways
+ * (`Services\Notifications\Sms\{InfobipSmsGateway,AlivSmsGateway,
+ * WhatsAppGateway}`) behind a single `SmsManager`, which sends via
+ * whichever one the admin has picked as primary (Settings > Notifications >
+ * SMS Settings) rather than legacy's hardcoded per-number routing — plus an
+ * admin-toggled failover to the other enabled gateways, which legacy never
+ * had at all. Every gateway is gated behind its own `services.*.enabled`
+ * config (default OFF) so this codebase never actually sends a message
+ * until a deployment turns one on with real production credentials.
+ * Legacy's static-file receipt hosting is replaced with a signed,
+ * unauthenticated PDF route (`receipts.show`) the SMS links
+ * to.
  *
  * Also fixed vs legacy: `TICKETS_MOVIE`'s search never filtered by
  * `transaction_id` at all (`WHERE transaction_type='TICKETS_MOVIE'` with no
@@ -69,7 +74,7 @@ class TransactionReceiptService
 
     public function __construct(
         private readonly TransactionRowFetcher $rows,
-        private readonly InfobipSmsService $sms,
+        private readonly SmsManager $sms,
     ) {}
 
     private function present(array $row): array
@@ -134,8 +139,9 @@ class TransactionReceiptService
 
     /**
      * Legacy's `send_receipt_via_text()` — texts a signed link to the PDF
-     * receipt via Infobip. No-ops the actual send (but still builds the real
-     * link and logs it) while `services.infobip.enabled` is off.
+     * receipt via whichever SMS gateway is currently primary. No-ops the
+     * actual send (but still builds the real link and logs it) while that
+     * gateway is disabled.
      *
      * @throws ValidationException
      */
@@ -151,19 +157,23 @@ class TransactionReceiptService
         $message = 'View your receipt from Suncash: '.$link;
 
         $result = $this->sms->send($mobile, $message);
+        $gateway = ucfirst($result['gateway']);
+        $failoverNote = $result['failed_over'] ? ' (failover after the primary gateway failed)' : '';
 
         $description = $result['simulated']
-            ? "Simulated receipt SMS for {$transactionId} to {$mobile} (Infobip disabled in this environment)."
-            : 'Sent receipt SMS for '.$transactionId." to {$mobile}.";
+            ? "Simulated receipt SMS for {$transactionId} to {$mobile} ({$gateway} disabled in this environment)."
+            : 'Sent receipt SMS for '.$transactionId." to {$mobile} via {$gateway}{$failoverNote}.";
         ActivityLog::recordAction(User::find($actorId), 'Resend Transaction Receipt', $result['simulated'] ? 'simulated' : 'sent', $description, null, null);
 
         return [
             'sent' => $result['sent'],
             'simulated' => $result['simulated'],
+            'gateway' => $result['gateway'],
+            'failed_over' => $result['failed_over'],
             'link' => $link,
             'message' => $result['simulated']
-                ? 'Infobip SMS sending is disabled in this environment — no message was actually sent. The receipt link was generated and logged.'
-                : ($result['sent'] ? 'Receipt has been sent via text.' : 'Failed to send the receipt via text.'),
+                ? "{$gateway} SMS sending is disabled in this environment — no message was actually sent. The receipt link was generated and logged."
+                : ($result['sent'] ? "Receipt has been sent via text{$failoverNote}." : 'Failed to send the receipt via text.'),
         ];
     }
 

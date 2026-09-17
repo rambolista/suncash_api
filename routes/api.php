@@ -94,6 +94,7 @@ use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
 use App\Http\Controllers\Api\PublicLandingPageController;
 use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
+use App\Http\Controllers\Api\Settings\SmsGatewaySettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
@@ -217,6 +218,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/{id}', [NotificationSettingController::class, 'show'])->whereNumber('id');
             Route::put('/{id}', [NotificationSettingController::class, 'update'])->whereNumber('id');
             Route::post('/{id}/toggle', [NotificationSettingController::class, 'toggle'])->whereNumber('id');
+        });
+
+        Route::prefix('sms-gateway')->group(function () {
+            Route::get('/', [SmsGatewaySettingController::class, 'show']);
+            Route::put('/', [SmsGatewaySettingController::class, 'update']);
+            Route::post('/failover', [SmsGatewaySettingController::class, 'toggleFailover']);
         });
 
         Route::prefix('customer-app')->group(function () {
