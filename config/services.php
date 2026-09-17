@@ -64,4 +64,11 @@ return [
         'sender' => env('INFOBIP_SENDER', 'suncash'),
     ],
 
+    // Kiosk > Voucher Pin Tool — decrypts merchant_vouchers/universal_vouchers.pin
+    // (legacy VOUCHER_CRYPT_KEY / VOUCHER_IV constants, AES-128-CBC).
+    'voucher' => [
+        'crypt_key' => env('VOUCHER_CRYPT_KEY'),
+        'iv' => env('VOUCHER_IV'),
+    ],
+
 ];
