@@ -86,6 +86,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProjectSettingController;
 use App\Http\Controllers\Api\Promotions\CashPromoSettingController;
 use App\Http\Controllers\Api\Promotions\GeoPromoController;
+use App\Http\Controllers\Api\Promotions\GrandDrawController;
 use App\Http\Controllers\Api\Promotions\PromoItemController;
 use App\Http\Controllers\Api\Promotions\PromoLookupController;
 use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
@@ -237,6 +238,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/ticket-reports', [PromoTicketReportController::class, 'index']);
         Route::get('/ticket-reports/export', [PromoTicketReportController::class, 'export']);
+
+        Route::prefix('grand-draw')->group(function () {
+            Route::get('/', [GrandDrawController::class, 'status']);
+            Route::get('/winners', [GrandDrawController::class, 'winners']);
+            Route::post('/run', [GrandDrawController::class, 'run']);
+        });
 
         Route::prefix('cash-promos')->group(function () {
             Route::get('/', [CashPromoSettingController::class, 'index']);
