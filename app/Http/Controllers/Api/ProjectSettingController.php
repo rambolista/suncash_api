@@ -32,7 +32,8 @@ class ProjectSettingController extends Controller
 
     public function update(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->super_admin, 403, 'Only a SuperAdmin may update project settings.');
+        // super_admin level 1 only unlocks the Admin Customizer; project settings need level 2.
+        abort_unless($request->user()?->super_admin === 2, 403, 'Only a SuperAdmin may update project settings.');
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],

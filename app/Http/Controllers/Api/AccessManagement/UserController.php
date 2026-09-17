@@ -267,7 +267,7 @@ class UserController extends Controller
             'address'       => $user->address,
             'avatar_url'    => $user->avatar_url,
             'status'        => $user->status ?? 'active',
-            'super_admin'   => (bool) $user->super_admin,
+            'super_admin'   => (int) $user->super_admin,
             'theme_preference' => $user->theme_preference,
             'updated_at'    => optional($user->updated_at)->toISOString(),
             'role_ids'      => $user->roles->pluck('id')->values()->all(),

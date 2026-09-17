@@ -81,7 +81,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'super_admin' => 'boolean',
+            // 0 = no admin-customizer/project-setup access, 1 = Admin Customizer only, 2 = both Admin Customizer and Project & Landing Setup
+            'super_admin' => 'integer',
             'two_factor_secret' => 'encrypted',
             'two_factor_enabled_at' => 'datetime',
         ];

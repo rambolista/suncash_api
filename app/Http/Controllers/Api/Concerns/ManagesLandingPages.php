@@ -14,7 +14,8 @@ trait ManagesLandingPages
 {
     private function authorizeSuperAdmin(Request $request): void
     {
-        abort_unless($request->user()?->super_admin, 403, 'Only a SuperAdmin may manage landing pages.');
+        // super_admin level 1 only unlocks the Admin Customizer; landing pages need level 2.
+        abort_unless($request->user()?->super_admin === 2, 403, 'Only a SuperAdmin may manage landing pages.');
     }
 
     private function decodeSettings(Request $request): void
