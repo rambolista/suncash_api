@@ -51,8 +51,11 @@ use App\Http\Controllers\Api\Kiosk\KioskBranchController;
 use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalController;
+use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashManagementController;
 use App\Http\Controllers\Api\Kiosk\KioskConfirmCustomerServiceController;
+use App\Http\Controllers\Api\Kiosk\KioskReplenishmentReceiptController;
+use App\Http\Controllers\Api\Kiosk\KioskReprintReceiptController;
 use App\Http\Controllers\Api\Kiosk\KioskVoucherPinToolController;
 use App\Http\Controllers\Api\Kiosk\KioskDepositsAdjustmentsController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionProfileController;
@@ -555,6 +558,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/session/{sessionId}', [KioskConfirmCustomerServiceController::class, 'sessionLogs']);
     });
 
+    Route::prefix('kiosk-reprint-receipt')->group(function () {
+        Route::get('/types', [KioskReprintReceiptController::class, 'types']);
+        Route::get('/search', [KioskReprintReceiptController::class, 'search']);
+        Route::get('/receipt', [KioskReprintReceiptController::class, 'receipt']);
+    });
+
+    Route::prefix('kiosk-reprint-replenishment-receipt')->group(function () {
+        Route::get('/filters', [KioskReplenishmentReceiptController::class, 'filters']);
+        Route::post('/search', [KioskReplenishmentReceiptController::class, 'search']);
+        Route::post('/detail', [KioskReplenishmentReceiptController::class, 'detail']);
+    });
+
     Route::prefix('kiosk-replenish-reports')->group(function () {
         Route::get('/', [KioskReplenishReportController::class, 'index']);
         Route::get('/terminals', [KioskReplenishReportController::class, 'terminals']);
@@ -600,6 +615,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('kiosk-voucher-access-reports')->group(function () {
         Route::get('/', [KioskVoucherAccessReportController::class, 'index']);
         Route::get('/export', [KioskVoucherAccessReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-commission-approval-reports')->group(function () {
+        Route::get('/', [KioskCommissionApprovalReportController::class, 'index']);
+        Route::get('/export', [KioskCommissionApprovalReportController::class, 'export']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {

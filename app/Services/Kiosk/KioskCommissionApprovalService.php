@@ -104,13 +104,8 @@ class KioskCommissionApprovalService
             ->distinct()->orderBy('location')->pluck('location')->all();
     }
 
-    /**
-     * Legacy `get_kiosk_commission_approval()`. `$year`/`$month` scope the
-     * whole calendar month (legacy's `by_month` branch, the one the "Apply
-     * Filters" button actually uses); `$status`/`$location`/`$partnerName`
-     * are optional narrower filters.
-     */
-    public function list(int $year, string $month, ?string $status, ?string $location, ?string $partnerName): array
+    /** Shared join/filter base for `list()` and `report()` — same underlying query, different column selections. */
+    private function baseQuery(int $year, string $month, ?string $status, ?string $location, ?string $partnerName)
     {
         $query = DB::connection('mysuncash')->table('kiosk_commission_transactions as kct')
             ->join('kiosk_terminal as kt', 'kt.id', '=', 'kct.terminal_id')
@@ -138,7 +133,19 @@ class KioskCommissionApprovalService
             });
         }
 
-        $rows = $query->orderByDesc('kct.create_date')
+        return $query;
+    }
+
+    /**
+     * Legacy `get_kiosk_commission_approval()`. `$year`/`$month` scope the
+     * whole calendar month (legacy's `by_month` branch, the one the "Apply
+     * Filters" button actually uses); `$status`/`$location`/`$partnerName`
+     * are optional narrower filters.
+     */
+    public function list(int $year, string $month, ?string $status, ?string $location, ?string $partnerName): array
+    {
+        $rows = $this->baseQuery($year, $month, $status, $location, $partnerName)
+            ->orderByDesc('kct.create_date')
             ->get([
                 'kct.transaction_id', 'kct.terminal_id', 'kct.status', 'kct.create_date', 'kct.total_amount', 'kct.total_revenue', 'kct.agent_commission',
                 'kt.name as kiosk', 'kt.location', 'kt.commission_type', 'kt.commission_fixed_value', 'kt.commission_user_account',
@@ -172,15 +179,80 @@ class KioskCommissionApprovalService
             ];
         }
 
+        return ['rows' => $result, 'totals' => $this->sumTotals($result)];
+    }
+
+    private function sumTotals(array $rows): array
+    {
         $totals = ['total_volume' => 0.0, 'total_revenue' => 0.0, 'total_commission_payments' => 0.0];
-        foreach ($result as $row) {
+        foreach ($rows as $row) {
             $totals['total_volume'] += $row['total_amount'];
             $totals['total_revenue'] += $row['total_revenue'];
             $totals['total_commission_payments'] += $row['commission_payment'];
         }
-        $totals = array_map(fn ($v) => round($v, 2), $totals);
 
-        return ['rows' => $result, 'totals' => $totals];
+        return array_map(fn ($v) => round($v, 2), $totals);
+    }
+
+    /**
+     * Legacy `commission_approval_report()` / `commission_approval_report_filter()`
+     * (`reports/commission_approval_report.php`) — the read-only audit report
+     * counterpart of `list()` above. Unlike `list()` (which always shows the
+     * commission rate/type/payment recomputed live from the terminal's
+     * current config — correct only for still-`pending` rows), this shows
+     * the rate/type/payment actually recorded at approval/rejection time via
+     * `kct.processed_*`/`kct.rejected_*` snapshot columns, and adds the
+     * "who decided it" + note columns legacy's report shows but the
+     * approval workflow list doesn't need.
+     */
+    public function report(int $year, string $month, ?string $status, ?string $location, ?string $partnerName): array
+    {
+        $rows = $this->baseQuery($year, $month, $status, $location, $partnerName)
+            ->orderByDesc('kct.create_date')
+            ->get([
+                'kct.transaction_id', 'kct.terminal_id', 'kct.status', 'kct.create_date', 'kct.total_amount', 'kct.total_revenue', 'kct.agent_commission',
+                'kct.approved_by', 'kct.approved_note', 'kct.rejected_by', 'kct.rejected_note',
+                'kct.processed_commission_type', 'kct.processed_commission_rate', 'kct.processed_commission_payment',
+                'kct.rejected_commission_type', 'kct.rejected_commission_rate', 'kct.rejected_commission_payment',
+                'kt.name as kiosk', 'kt.location', 'kt.commission_type', 'kt.commission_fixed_value', 'kt.commission_user_account',
+                'i.name as island', 'km.mobile as manager_mobile',
+                DB::raw("CONCAT(km.manager_firstname, ' ', km.manager_lastname) as manager_name"),
+                DB::raw("CONCAT(c.first_name, ' ', c.last_name) as customer_name"),
+            ]);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $hasOverride = filled($row->commission_user_account);
+            $fixedValue = (float) $row->commission_fixed_value;
+            $agentCommission = (float) $row->agent_commission;
+            $commissionType = $row->commission_type !== null ? (int) $row->commission_type : null;
+
+            [$typeLabel, $rate, $payment] = match ($row->status) {
+                KioskCommissionTransaction::STATUS_PROCESSED => [$row->processed_commission_type, $row->processed_commission_rate, (float) $row->processed_commission_payment],
+                KioskCommissionTransaction::STATUS_REJECTED => [$row->rejected_commission_type, $row->rejected_commission_rate, (float) $row->rejected_commission_payment],
+                default => [$this->commissionTypeLabel($commissionType), $this->commissionRateDisplay($commissionType, $fixedValue, $agentCommission, (float) $row->total_revenue), round($this->commissionPayment($commissionType, $fixedValue, $agentCommission), 2)],
+            };
+
+            $result[] = [
+                'transaction_id' => $row->transaction_id,
+                'create_date' => $row->create_date,
+                'kiosk' => $row->kiosk,
+                'location' => $row->location,
+                'island' => $row->island,
+                'partner_name' => $hasOverride ? trim((string) $row->customer_name) : trim((string) $row->manager_name),
+                'partner_mobile' => $hasOverride ? $row->commission_user_account : $row->manager_mobile,
+                'total_amount' => (float) $row->total_amount,
+                'total_revenue' => (float) $row->total_revenue,
+                'commission_type' => $typeLabel,
+                'commission_rate' => $rate,
+                'commission_payment' => $payment,
+                'status' => $row->status,
+                'decided_by' => $row->status === KioskCommissionTransaction::STATUS_PROCESSED ? $row->approved_by : $row->rejected_by,
+                'note' => $row->status === KioskCommissionTransaction::STATUS_PROCESSED ? $row->approved_note : $row->rejected_note,
+            ];
+        }
+
+        return ['rows' => $result, 'totals' => $this->sumTotals($result)];
     }
 
     /** Legacy `get_kiosk_commission_histories()` — last 10 rows for a terminal, any status. */
