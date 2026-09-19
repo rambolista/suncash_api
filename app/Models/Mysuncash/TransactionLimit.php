@@ -12,4 +12,6 @@ class TransactionLimit extends Model
     protected $table = 'transaction_limit';
 
     public $timestamps = false;
+
+    protected $fillable = ['transaction_limit', 'update_date'];
 }

@@ -101,6 +101,8 @@ use App\Http\Controllers\Api\Settings\SmsGatewaySettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
+use App\Http\Controllers\Api\Tools\TransactionFeeController;
+use App\Http\Controllers\Api\Tools\TransactionLimitController;
 use App\Http\Controllers\Api\Transactions\VoidTransactionController;
 use App\Http\Controllers\Api\ThemePreferenceController;
 use App\Http\Controllers\Api\UserActivityController;
@@ -433,6 +435,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('void-transaction')->group(function () {
         Route::post('/search', [VoidTransactionController::class, 'search']);
         Route::post('/void', [VoidTransactionController::class, 'void']);
+    });
+
+    Route::prefix('transaction-fees')->group(function () {
+        Route::get('/', [TransactionFeeController::class, 'index']);
+        Route::put('/{id}', [TransactionFeeController::class, 'update'])->whereNumber('id');
+    });
+
+    Route::prefix('transaction-limits')->group(function () {
+        Route::get('/', [TransactionLimitController::class, 'index']);
+        Route::put('/{id}', [TransactionLimitController::class, 'update'])->whereNumber('id');
     });
 
     Route::prefix('resend-receipt')->group(function () {
