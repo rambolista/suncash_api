@@ -13,15 +13,18 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * "Tools > Customer Management > Push Notification" (legacy
- * `tools::send_push_notif()` — "Upgrade KYC" / "Update App Version").
- * Legacy calls Firebase Cloud Messaging (a cached OAuth bearer token in
- * `push_notif_token`, refreshed by a process outside this codebase) and
- * falls back to SMS when the customer has no FCM token or the push fails.
- * Gated behind `services.fcm.enabled` (default false, same disabled-by-
- * default pattern as every other unconfigured external integration this
- * session added) — the SMS fallback still works today via the existing
- * `SmsManager`, so this is a real, working action even without FCM
- * credentials, not just a stub.
+ * `tools::send_push_notif()` / `callPushNotifApiV2()` — "Upgrade KYC" /
+ * "Update App Version"). Legacy has no static FCM server key anywhere —
+ * it exchanges a service-account credential for a short-lived OAuth
+ * bearer token via a separate script (`api/generate_notif_token.php`,
+ * outside both codebases) and caches it in the `push_notif_token` table.
+ * This reads that same table directly rather than duplicating the
+ * service-account/OAuth flow here, so it stays in sync with whatever
+ * legacy's own cron already refreshes. Falls back to SMS when the
+ * customer has no FCM token, the cached token is missing, or the push
+ * fails. Gated behind `services.fcm.enabled` (default false) — the SMS
+ * fallback still works today via the existing `SmsManager`, so this is a
+ * real, working action even with FCM left disabled, not just a stub.
  */
 class PushNotificationService
 {
@@ -45,9 +48,9 @@ class PushNotificationService
         }
 
         $message = self::MESSAGES[$type];
-        $token = DB::connection('mysuncash')->table('customer_firebase_token')->where('customer_id', $customerId)->value('firebase_token');
+        $customerToken = DB::connection('mysuncash')->table('customer_firebase_token')->where('customer_id', $customerId)->value('firebase_token');
 
-        $sentViaPush = $token && config('services.fcm.enabled') ? $this->sendFcm($token, $message) : false;
+        $sentViaPush = $customerToken && config('services.fcm.enabled') ? $this->sendFcm($customerToken, $message) : false;
 
         $sentViaSms = false;
         if (! $sentViaPush) {
@@ -68,11 +71,19 @@ class PushNotificationService
         ];
     }
 
-    private function sendFcm(string $token, string $message): bool
+    /** Legacy `callPushNotifApiV2()` — `SELECT * FROM push_notif_token`, single cached row keeping the OAuth bearer token. */
+    private function sendFcm(string $customerToken, string $message): bool
     {
-        $response = Http::withToken((string) config('services.fcm.server_key'))->post(
+        $bearerToken = DB::connection('mysuncash')->table('push_notif_token')->value('token');
+        if (blank($bearerToken)) {
+            Log::warning('FCM push notification skipped: no cached push_notif_token available.');
+
+            return false;
+        }
+
+        $response = Http::withToken($bearerToken)->post(
             rtrim((string) config('services.fcm.url'), '/'),
-            ['message' => ['token' => $token, 'notification' => ['title' => 'SunCash App', 'body' => $message]]]
+            ['message' => ['token' => $customerToken, 'notification' => ['title' => 'SunCash App', 'body' => $message]]]
         );
 
         if (! $response->successful()) {

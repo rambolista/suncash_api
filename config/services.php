@@ -109,15 +109,14 @@ return [
         'url' => env('RESET_PIN_URL'),
     ],
 
-    // Tools > Customer Management > Push Notification. Disabled by default
-    // — legacy's cached FCM OAuth bearer token (`push_notif_token`) is
-    // refreshed by a process outside this codebase, so there's no real
-    // credential to reuse yet. The SMS fallback (via SmsManager) works
-    // regardless of this flag.
+    // Tools > Customer Management > Push Notification. Disabled by default.
+    // The OAuth bearer token itself is read straight from the shared
+    // `push_notif_token` table (PushNotificationService) — refreshed by a
+    // process outside this codebase — not from config. The SMS fallback
+    // (via SmsManager) works regardless of this flag.
     'fcm' => [
         'enabled' => env('FCM_ENABLED', false),
         'url' => env('FCM_URL'),
-        'server_key' => env('FCM_SERVER_KEY'),
     ],
 
     // Kiosk > Voucher Pin Tool — decrypts merchant_vouchers/universal_vouchers.pin
