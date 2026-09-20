@@ -13,9 +13,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * new system's own separately-run customer portal.
  */
 #[Fillable([
-    'first_name', 'last_name', 'gender', 'birthday', 'address1',
+    'first_name', 'last_name', 'middle_name', 'gender', 'birthday', 'address1', 'address2', 'zip',
     'is_sub_account', 'is_new', 'status', 'country', 'ezkard_account_id', 'merchant_id',
     'customer_access', 'reason_reject', 'updated_by', 'updated_on', 'mobile', 'reward_identifier',
+    'email', 'island', 'city', 'customer_tag', 'risk_rating', 'occupation', 'employment_position_level',
+    'sms_notification', 'email_notification', 'is_locked', 'is_card_beta_user',
 ])]
 class Customer extends Model
 {

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * scoped to any one merchant (matches legacy: `link_company_bank_account()`
  * never takes a merchant id either).
  */
-#[Fillable(['business_billpay_banks_id', 'account_name', 'account_no', 'status'])]
+#[Fillable(['business_billpay_banks_id', 'account_name', 'account_no', 'status', 'create_date', 'modification_date'])]
 class BankAccount extends Model
 {
     protected $connection = 'mysuncash';

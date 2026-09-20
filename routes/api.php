@@ -101,6 +101,12 @@ use App\Http\Controllers\Api\Settings\SmsGatewaySettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
+use App\Http\Controllers\Api\Tools\CustomerManagementController;
+use App\Http\Controllers\Api\Tools\ForexRateController;
+use App\Http\Controllers\Api\Tools\SendSmsController;
+use App\Http\Controllers\Api\Tools\BankAccountController;
+use App\Http\Controllers\Api\Tools\RevShareManagementController;
+use App\Http\Controllers\Api\Tools\SmsResponseController;
 use App\Http\Controllers\Api\Tools\TransactionFeeController;
 use App\Http\Controllers\Api\Tools\TransactionLimitController;
 use App\Http\Controllers\Api\Transactions\VoidTransactionController;
@@ -445,6 +451,47 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('transaction-limits')->group(function () {
         Route::get('/', [TransactionLimitController::class, 'index']);
         Route::put('/{id}', [TransactionLimitController::class, 'update'])->whereNumber('id');
+    });
+
+    Route::prefix('forex-rates')->group(function () {
+        Route::get('/', [ForexRateController::class, 'index']);
+        Route::post('/', [ForexRateController::class, 'store']);
+    });
+
+    Route::prefix('send-sms')->group(function () {
+        Route::get('/recipient-count', [SendSmsController::class, 'recipientCount']);
+        Route::post('/', [SendSmsController::class, 'send']);
+    });
+
+    Route::prefix('customer-management')->group(function () {
+        Route::get('/search', [CustomerManagementController::class, 'search']);
+        Route::get('/{id}', [CustomerManagementController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [CustomerManagementController::class, 'update'])->whereNumber('id');
+        Route::post('/{id}/notes', [CustomerManagementController::class, 'addNote'])->whereNumber('id');
+        Route::get('/{id}/transactions', [CustomerManagementController::class, 'transactions'])->whereNumber('id');
+        Route::get('/{id}/transactions/export', [CustomerManagementController::class, 'exportTransactions'])->whereNumber('id');
+        Route::post('/{id}/archive', [CustomerManagementController::class, 'archive'])->whereNumber('id');
+        Route::get('/{id}/comply-profile', [CustomerManagementController::class, 'complyProfile'])->whereNumber('id');
+        Route::get('/{id}/authenticate', [CustomerManagementController::class, 'authenticateStatus'])->whereNumber('id');
+        Route::post('/{id}/authenticate', [CustomerManagementController::class, 'authenticateRequest'])->whereNumber('id');
+    });
+
+    Route::prefix('sms-responses')->group(function () {
+        Route::get('/merchants', [SmsResponseController::class, 'merchants']);
+        Route::get('/', [SmsResponseController::class, 'index']);
+        Route::put('/', [SmsResponseController::class, 'update']);
+    });
+
+    Route::prefix('revshare-management')->group(function () {
+        Route::get('/filters', [RevShareManagementController::class, 'filters']);
+        Route::get('/', [RevShareManagementController::class, 'index']);
+    });
+
+    Route::prefix('bank-accounts')->group(function () {
+        Route::get('/banks', [BankAccountController::class, 'banks']);
+        Route::get('/', [BankAccountController::class, 'index']);
+        Route::post('/', [BankAccountController::class, 'store']);
+        Route::put('/{id}', [BankAccountController::class, 'update'])->whereNumber('id');
     });
 
     Route::prefix('resend-receipt')->group(function () {

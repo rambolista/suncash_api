@@ -86,6 +86,18 @@ return [
         'language' => env('WHATSAPP_TEMPLATE_LANGUAGE'),
     ],
 
+    // Tools > Customer Management > View ComplyAdvantage Profile. Legacy's
+    // own credentials (COMPLY_API_URL/USERNAME/REALM/PASSWORD) live outside
+    // its checked-in source (server-level config not present in this repo),
+    // so this stays disabled until real ones are supplied per environment.
+    'comply_advantage' => [
+        'enabled' => env('COMPLY_ADVANTAGE_ENABLED', false),
+        'api_url' => env('COMPLY_ADVANTAGE_API_URL'),
+        'username' => env('COMPLY_ADVANTAGE_USERNAME'),
+        'realm' => env('COMPLY_ADVANTAGE_REALM'),
+        'password' => env('COMPLY_ADVANTAGE_PASSWORD'),
+    ],
+
     // Kiosk > Voucher Pin Tool — decrypts merchant_vouchers/universal_vouchers.pin
     // (legacy VOUCHER_CRYPT_KEY / VOUCHER_IV constants, AES-128-CBC).
     'voucher' => [
