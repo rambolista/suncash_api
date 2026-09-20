@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'customer_access', 'reason_reject', 'updated_by', 'updated_on', 'mobile', 'reward_identifier',
     'email', 'island', 'city', 'customer_tag', 'risk_rating', 'occupation', 'employment_position_level',
     'sms_notification', 'email_notification', 'is_locked', 'is_card_beta_user',
+    'restricted_by', 'restricted_date', 'restricted_reason', 'restricted_note', 'restricted_reference',
+    'locked_by', 'locked_date', 'locked_reason', 'locked_note', 'locked_reference',
+    'id_card_type', 'id_card_num', 'id_card_expiry', 'id_card_issue_date', 'scanned_id',
 ])]
 class Customer extends Model
 {

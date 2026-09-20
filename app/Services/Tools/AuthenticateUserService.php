@@ -35,6 +35,7 @@ class AuthenticateUserService
 
     public function __construct(private readonly SmsManager $sms) {}
 
+    /** Legacy `get_active_authenticat_user_log()` — now with the live countdown fields the polling UI needs (`expires_at`/`remaining_seconds`). */
     public function activeRequest(int $customerId): ?array
     {
         $row = DB::connection('mysuncash')->table('force_authenticate_user_logs')
@@ -42,16 +43,24 @@ class AuthenticateUserService
             ->orderByDesc('id')
             ->first();
 
-        if (! $row || $row->status !== 'Pending') {
-            return $row ? (array) $row : null;
+        if (! $row) {
+            return null;
         }
 
-        if (now()->diffInSeconds($row->created_at) > self::PENDING_TTL_SECONDS) {
-            DB::connection('mysuncash')->table('force_authenticate_user_logs')->where('id', $row->id)->update(['status' => 'Expired', 'updated_at' => now()]);
-            $row->status = 'Expired';
+        if ($row->status === 'Pending') {
+            $elapsed = now()->diffInSeconds($row->created_at);
+            if ($elapsed > self::PENDING_TTL_SECONDS) {
+                DB::connection('mysuncash')->table('force_authenticate_user_logs')->where('id', $row->id)->update(['status' => 'Expired', 'updated_at' => now()]);
+                $row->status = 'Expired';
+            }
         }
 
-        return (array) $row;
+        $data = (array) $row;
+        $expiresAt = \Illuminate\Support\Carbon::parse($row->created_at)->addSeconds(self::PENDING_TTL_SECONDS);
+        $data['expires_at'] = $expiresAt->toDateTimeString();
+        $data['remaining_seconds'] = $row->status === 'Pending' ? max(0, (int) round(now()->diffInSeconds($expiresAt, false))) : 0;
+
+        return $data;
     }
 
     /** @throws ValidationException */

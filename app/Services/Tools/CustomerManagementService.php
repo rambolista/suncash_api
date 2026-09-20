@@ -3,8 +3,13 @@
 namespace App\Services\Tools;
 
 use App\Models\ActivityLog;
+use App\Models\Mysuncash\Country;
 use App\Models\Mysuncash\Customer;
-use App\Models\Mysuncash\EzkardAccount;
+use App\Models\Mysuncash\CustomerDevice;
+use App\Models\Mysuncash\CustomerTransactionHistory;
+use App\Models\Mysuncash\Island;
+use App\Models\Mysuncash\IslandCity;
+use App\Models\Mysuncash\PrepaidVisaCard;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,14 +29,15 @@ use Illuminate\Validation\ValidationException;
  *   changes, re-encrypts the customer's PIN under a new key derived from
  *   the new mobile and pushes a member-update to an external ALIV
  *   list-app API — too deep/risky a side-effect chain to port blind.
- * - "Reset Pin" is not ported. Legacy's own button fires a live GET
- *   straight to a hardcoded `https://prod.mysuncash.com` URL regardless of
- *   which environment the admin panel itself runs in — a real footgun,
- *   not a pattern worth replicating.
- * - Linked cards/banks, scanned ID viewer, push notifications, and the
- *   Christmas-promo toggle are not ported — each depends on
- *   file-storage/FCM/seasonal-campaign infrastructure that doesn't exist
- *   in this codebase yet.
+ * - "Reset Pin" (see `ResetPinService`) is gated behind a disabled-by-
+ *   default config flag rather than legacy's hardcoded live GET straight
+ *   to `https://prod.mysuncash.com` regardless of environment.
+ * - Linked cards/banks (`CustomerLinkedAccountsService`), scanned ID's
+ *   (also `CustomerLinkedAccountsService`), push notifications
+ *   (`PushNotificationService`), and the Christmas-promo toggle
+ *   (`CustomerPromoService`) live in their own small services — this class
+ *   only covers the core profile fields and the KYC-tier/average-
+ *   transaction figures legacy computes inline in `get_customerinfo()`.
  */
 class CustomerManagementService
 {
@@ -159,7 +165,53 @@ class CustomerManagementService
             'card_balance' => (float) ($ezkard?->card_balance ?? 0),
             'card_status_id' => $ezkard?->card_status_id,
             'merchant' => $ezkard?->merchant?->merchant_name,
+            'locked_by' => $customer->locked_by,
+            'locked_date' => $customer->locked_date,
+            'locked_reason' => $customer->locked_reason,
+            'locked_note' => $customer->locked_note,
+            'restricted_by' => $customer->restricted_by,
+            'restricted_date' => $customer->restricted_date,
+            'restricted_reason' => $customer->restricted_reason,
+            'restricted_note' => $customer->restricted_note,
+            'ios_version' => $customer->ios_vr,
+            'android_version' => $customer->android_vr,
+            'prepaid_card_number' => PrepaidVisaCard::where('customer_id', $id)->value('card_number'),
+            'avg_monthly_debit' => $this->averageMonthlyAmount($id, 'DEBIT'),
+            'avg_monthly_credit' => $this->averageMonthlyAmount($id, 'CREDIT'),
+            'authorized_devices' => CustomerDevice::where('customer_id', $id)->get(['id', 'uuid', 'model', 'timestamp'])->all(),
         ];
+    }
+
+    /**
+     * Legacy `getCustomerAverageTransactions()` — average transaction
+     * amount over the last calendar month. Legacy itself only ever
+     * computes this monthly figure (no separate weekly query exists
+     * anywhere in that codebase, despite the admin UI label saying
+     * "Weekly/Monthly"), and legacy also swaps the credit/debit labels
+     * when assigning the two results — replicated correctly here instead.
+     */
+    private function averageMonthlyAmount(int $customerId, string $orientation): float
+    {
+        return (float) (CustomerTransactionHistory::where('customer_id', $customerId)
+            ->where('finance_orientation', $orientation)
+            ->where('created_date', '>', now()->subMonth())
+            ->where('created_date', '<=', now())
+            ->avg('amount') ?? 0);
+    }
+
+    public function countries(): array
+    {
+        return Country::where('status', 1)->orderBy('name')->get(['country_id as id', 'name'])->all();
+    }
+
+    public function islands(): array
+    {
+        return Island::orderBy('name')->get(['id', 'name'])->all();
+    }
+
+    public function citiesByIsland(int $islandId): array
+    {
+        return IslandCity::where('island_id', $islandId)->orderBy('city_name')->get(['city_id as id', 'city_name as name'])->all();
     }
 
     /** @throws ValidationException */

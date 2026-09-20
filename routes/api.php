@@ -465,6 +465,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('customer-management')->group(function () {
         Route::get('/search', [CustomerManagementController::class, 'search']);
+        Route::get('/dropdowns', [CustomerManagementController::class, 'dropdowns']);
+        Route::get('/islands/{islandId}/cities', [CustomerManagementController::class, 'citiesByIsland'])->whereNumber('islandId');
+        Route::get('/account-status-reasons', [CustomerManagementController::class, 'accountStatusReasons']);
         Route::get('/{id}', [CustomerManagementController::class, 'show'])->whereNumber('id');
         Route::put('/{id}', [CustomerManagementController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/notes', [CustomerManagementController::class, 'addNote'])->whereNumber('id');
@@ -474,6 +477,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/comply-profile', [CustomerManagementController::class, 'complyProfile'])->whereNumber('id');
         Route::get('/{id}/authenticate', [CustomerManagementController::class, 'authenticateStatus'])->whereNumber('id');
         Route::post('/{id}/authenticate', [CustomerManagementController::class, 'authenticateRequest'])->whereNumber('id');
+        Route::get('/{id}/account-status-history', [CustomerManagementController::class, 'accountStatusHistory'])->whereNumber('id');
+        Route::post('/{id}/account-status', [CustomerManagementController::class, 'updateAccountStatus'])->whereNumber('id');
+        Route::get('/{id}/linked-cards', [CustomerManagementController::class, 'linkedCards'])->whereNumber('id');
+        Route::delete('/linked-cards/{cardId}', [CustomerManagementController::class, 'deleteLinkedCard'])->whereNumber('cardId');
+        Route::get('/{id}/linked-bank-accounts', [CustomerManagementController::class, 'linkedBankAccounts'])->whereNumber('id');
+        Route::get('/{id}/scanned-ids', [CustomerManagementController::class, 'scannedIds'])->whereNumber('id');
+        Route::put('/{id}/scanned-ids', [CustomerManagementController::class, 'updateScannedIds'])->whereNumber('id');
+        Route::post('/{id}/reset-pin', [CustomerManagementController::class, 'resetPin'])->whereNumber('id');
+        Route::get('/{id}/promo-status', [CustomerManagementController::class, 'promoStatus'])->whereNumber('id');
+        Route::post('/{id}/promo-status', [CustomerManagementController::class, 'updatePromoStatus'])->whereNumber('id');
+        Route::post('/{id}/push-notification', [CustomerManagementController::class, 'sendPushNotification'])->whereNumber('id');
     });
 
     Route::prefix('sms-responses')->group(function () {

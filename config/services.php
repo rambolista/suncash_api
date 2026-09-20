@@ -98,6 +98,28 @@ return [
         'password' => env('COMPLY_ADVANTAGE_PASSWORD'),
     ],
 
+    // Tools > Customer Management > Reset Pin. Legacy hardcodes a live GET
+    // straight to https://prod.mysuncash.com regardless of which
+    // environment the admin panel itself runs in — a real footgun, not
+    // something to replicate. This reads the target URL from config/env
+    // instead (blank/disabled by default) so it can never fire against a
+    // real environment until deliberately configured.
+    'reset_pin' => [
+        'enabled' => env('RESET_PIN_ENABLED', false),
+        'url' => env('RESET_PIN_URL'),
+    ],
+
+    // Tools > Customer Management > Push Notification. Disabled by default
+    // — legacy's cached FCM OAuth bearer token (`push_notif_token`) is
+    // refreshed by a process outside this codebase, so there's no real
+    // credential to reuse yet. The SMS fallback (via SmsManager) works
+    // regardless of this flag.
+    'fcm' => [
+        'enabled' => env('FCM_ENABLED', false),
+        'url' => env('FCM_URL'),
+        'server_key' => env('FCM_SERVER_KEY'),
+    ],
+
     // Kiosk > Voucher Pin Tool — decrypts merchant_vouchers/universal_vouchers.pin
     // (legacy VOUCHER_CRYPT_KEY / VOUCHER_IV constants, AES-128-CBC).
     'voucher' => [

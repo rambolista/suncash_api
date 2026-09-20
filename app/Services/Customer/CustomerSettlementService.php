@@ -16,6 +16,7 @@ use App\Models\Mysuncash\KioskManager;
 use App\Models\Mysuncash\SystemSetting;
 use App\Models\Mysuncash\UserAccount;
 use App\Models\User;
+use App\Services\Customer\Concerns\DecryptsPan;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -50,41 +51,11 @@ use Illuminate\Validation\ValidationException;
  */
 class CustomerSettlementService
 {
+    use DecryptsPan;
+
     private const STATUSES = ['pending' => CustomerSettlement::STATUS_PENDING, 'approved' => CustomerSettlement::STATUS_PROCESSED, 'rejected' => CustomerSettlement::STATUS_REJECTED];
 
     private const NO_REFUND_CHANNELS = ['WEBPOS', 'KioskCommission'];
-
-    private const PAN_KEK = 'cfbe176207b80774e8911c10893f5a0f';
-
-    private ?string $panKeyCache = null;
-
-    private function hideItDecrypt(string $pass, string $encrypted, string $iv): ?string
-    {
-        $result = openssl_decrypt($encrypted, 'aes-256-cbc', $pass, false, substr(sha1($iv), 3, 16));
-
-        return $result === false ? null : $result;
-    }
-
-    private function panKey(): string
-    {
-        if ($this->panKeyCache !== null) {
-            return $this->panKeyCache;
-        }
-
-        $dekEnc = DB::connection('mysuncash')->table('keys')->orderByDesc('timestamp')->value('key');
-        $this->panKeyCache = $dekEnc ? (string) $this->hideItDecrypt(self::PAN_KEK, $dekEnc, sha1('aes-256-cbc')) : '';
-
-        return $this->panKeyCache;
-    }
-
-    private function decryptPan(?string $encrypted, string $ivSeed): ?string
-    {
-        if (! filled($encrypted)) {
-            return null;
-        }
-
-        return $this->hideItDecrypt($this->panKey(), $encrypted, sha1(md5($ivSeed))) ?: null;
-    }
 
     private function withdrawalTypeLabel(?string $withdrawalType): string
     {

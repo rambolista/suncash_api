@@ -5,9 +5,14 @@ namespace App\Http\Controllers\Api\Tools;
 use App\Http\Controllers\Api\Concerns\ExportsTabularReports;
 use App\Http\Controllers\Controller;
 use App\Services\Customer\CustomerArchiveService;
+use App\Services\Tools\AccountStatusService;
 use App\Services\Tools\AuthenticateUserService;
 use App\Services\Tools\ComplyAdvantageService;
+use App\Services\Tools\CustomerLinkedAccountsService;
 use App\Services\Tools\CustomerManagementService;
+use App\Services\Tools\CustomerPromoService;
+use App\Services\Tools\PushNotificationService;
+use App\Services\Tools\ResetPinService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -25,6 +30,11 @@ class CustomerManagementController extends Controller
         private readonly ComplyAdvantageService $comply,
         private readonly AuthenticateUserService $authenticateUser,
         private readonly CustomerArchiveService $archive,
+        private readonly AccountStatusService $accountStatus,
+        private readonly CustomerLinkedAccountsService $linkedAccounts,
+        private readonly ResetPinService $resetPin,
+        private readonly CustomerPromoService $promo,
+        private readonly PushNotificationService $pushNotification,
     ) {}
 
     private function invalid(ValidationException $exception): JsonResponse
@@ -227,5 +237,217 @@ class CustomerManagementController extends Controller
         }
 
         return response()->json(['message' => 'Authentication request has been sent.', 'data' => $result]);
+    }
+
+    public function accountStatusReasons(Request $request): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json([
+            'locked' => $this->accountStatus->lockReasons(),
+            'restricted' => $this->accountStatus->restrictionReasons(),
+            'restoration' => $this->accountStatus->restoreReasons(),
+        ]);
+    }
+
+    public function accountStatusHistory(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        $data = $request->validate([
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date'],
+            'status' => ['nullable', 'string', 'in:A,L,R'],
+        ]);
+
+        return response()->json(['data' => $this->accountStatus->history($id, $data['start_date'], $data['end_date'], $data['status'] ?? null)]);
+    }
+
+    public function updateAccountStatus(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_edit')) {
+            return $response;
+        }
+
+        $data = $request->validate([
+            'current_status' => ['required', 'string'],
+            'new_status' => ['required', 'string'],
+            'reason_id' => ['required', 'integer'],
+            'reason_label' => ['required', 'string', 'max:255'],
+            'note' => ['required', 'string'],
+            'change_type' => ['required', 'string', 'in:locked,restricted,restore'],
+            'reference' => ['required', 'string', 'max:110'],
+        ]);
+
+        try {
+            $result = $this->accountStatus->updateStatus(
+                $id,
+                $data['current_status'],
+                $data['new_status'],
+                $data['reason_id'],
+                $data['reason_label'],
+                $data['note'],
+                $data['change_type'],
+                $data['reference'],
+                $request->user(),
+            );
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json(['message' => 'Account Status has been updated.', 'data' => $result]);
+    }
+
+    public function linkedCards(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json(['data' => $this->linkedAccounts->cards($id)]);
+    }
+
+    public function deleteLinkedCard(Request $request, int $cardId): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_delete')) {
+            return $response;
+        }
+
+        try {
+            $this->linkedAccounts->deleteCard($cardId, $request->user());
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json(['message' => 'Customer card successfully deleted.']);
+    }
+
+    public function linkedBankAccounts(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json(['data' => $this->linkedAccounts->bankAccounts($id)]);
+    }
+
+    public function scannedIds(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        try {
+            $data = $this->linkedAccounts->scannedIds($id);
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json($data);
+    }
+
+    public function resetPin(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_edit')) {
+            return $response;
+        }
+
+        try {
+            $result = $this->resetPin->reset($id, $request->user());
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json($result);
+    }
+
+    public function dropdowns(Request $request): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json([
+            'countries' => $this->customers->countries(),
+            'islands' => $this->customers->islands(),
+        ]);
+    }
+
+    public function citiesByIsland(Request $request, int $islandId): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json(['data' => $this->customers->citiesByIsland($islandId)]);
+    }
+
+    public function updateScannedIds(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_edit')) {
+            return $response;
+        }
+
+        $data = $request->validate([
+            'id_card_type' => ['nullable', 'string', 'max:20'],
+            'id_card_num' => ['nullable', 'string', 'max:50'],
+            'id_card_expiry' => ['nullable', 'string', 'max:20'],
+            'id_card_issue_date' => ['nullable', 'string', 'max:20'],
+            'scanned_id' => ['nullable', 'string'],
+            'secondary_id_card_type' => ['nullable', 'string', 'max:20'],
+            'secondary_id_card_num' => ['nullable', 'string', 'max:50'],
+            'secondary_id_card_expiry' => ['nullable', 'string', 'max:20'],
+            'secondary_scanned_id' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $result = $this->linkedAccounts->updateScannedIds($id, $data, $request->user());
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json(['message' => "Customer scanned ID's has been updated.", 'data' => $result]);
+    }
+
+    public function promoStatus(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_view')) {
+            return $response;
+        }
+
+        return response()->json(['is_active' => $this->promo->isActive($id)]);
+    }
+
+    public function updatePromoStatus(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_edit')) {
+            return $response;
+        }
+
+        $data = $request->validate(['is_active' => ['required', 'boolean']]);
+        $this->promo->setActive($id, $data['is_active'], $request->user());
+
+        return response()->json(['message' => 'Preferences have been updated.']);
+    }
+
+    public function sendPushNotification(Request $request, int $id): JsonResponse
+    {
+        if ($response = $this->forbidden($request, 'can_execute')) {
+            return $response;
+        }
+
+        $data = $request->validate(['type' => ['required', 'string', 'in:kyc,version']]);
+
+        try {
+            $result = $this->pushNotification->send($id, $data['type'], $request->user());
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json($result);
     }
 }

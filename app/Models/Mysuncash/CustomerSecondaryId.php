@@ -2,10 +2,12 @@
 
 namespace App\Models\Mysuncash;
 
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** A customer's optional secondary ID document (`customer_secondary_id`), shown only when `customers.has_secondary_id = 1`. */
+#[Fillable(['id_card_type', 'id_card_num', 'id_card_expiry', 'scanned_id'])]
 class CustomerSecondaryId extends Model
 {
     protected $connection = 'mysuncash';

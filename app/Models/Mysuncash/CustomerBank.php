@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A customer's linked bank account (`customer_banks`) used as a withdrawal
  * destination. `account_name`/`account_number` are encrypted at rest — see
- * `CustomerSettlementService::decryptPan()`.
+ * `App\Services\Customer\Concerns\DecryptsPan`.
  */
 #[Fillable(['card_status', 'update_date'])]
 class CustomerBank extends Model
@@ -23,5 +23,10 @@ class CustomerBank extends Model
     public function businessBillpayBank(): BelongsTo
     {
         return $this->belongsTo(BusinessBillpayBank::class, 'branch_id');
+    }
+
+    public function bank(): BelongsTo
+    {
+        return $this->belongsTo(Bank::class, 'bank_id');
     }
 }
