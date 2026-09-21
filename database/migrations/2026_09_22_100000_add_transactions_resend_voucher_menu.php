@@ -10,14 +10,16 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const TRANSACTIONS_MENU_ID = 329;
-
     public function up(): void
     {
         $now = now();
 
+        // Resolved by slug, not a hardcoded id — see the identical fix/note
+        // in 2026_09_03_100000_add_transactions_resend_receipt_menu.php.
+        $transactionsMenuId = DB::table('menus')->where('slug', 'pages:transactions')->value('id');
+
         $menuId = DB::table('menus')->insertGetId([
-            'parent_id' => self::TRANSACTIONS_MENU_ID,
+            'parent_id' => $transactionsMenuId,
             'label' => 'Resend Voucher',
             'slug' => 'pages:transactions-resend-voucher',
             'url' => '/transactions/resend-voucher',

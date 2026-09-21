@@ -12,31 +12,32 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const MERCHANTS_MENU_ID = 295;
-
-    private const MERCHANT_MANAGEMENT_MENU_ID = 296;
-
-    private const MAIN_MENU_ID = 1;
-
     public function up(): void
     {
+        // Resolved by slug, not hardcoded ids — an auto-increment id depends on
+        // how many other menu rows exist before it, which varies across
+        // environments (a fresh install's ids won't match this dev database's).
+        $mainMenuId = DB::table('menus')->where('slug', 'main')->whereNull('parent_id')->value('id');
+        $merchantsMenuId = DB::table('menus')->where('slug', 'merchants')->value('id');
+        $merchantManagementMenuId = DB::table('menus')->where('slug', 'pages:merchants-registration')->value('id');
+
         DB::table('menus')
-            ->where('id', self::MERCHANTS_MENU_ID)
+            ->where('id', $merchantsMenuId)
             ->update([
-                'parent_id' => self::MAIN_MENU_ID,
+                'parent_id' => $mainMenuId,
                 'is_title' => 0,
                 'sort_order' => 1,
             ]);
 
         $rolePermissions = DB::table('role_menu_permissions')
-            ->where('menu_id', self::MERCHANT_MANAGEMENT_MENU_ID)
+            ->where('menu_id', $merchantManagementMenuId)
             ->get();
 
         $now = now();
 
         foreach ($rolePermissions as $permission) {
             DB::table('role_menu_permissions')->updateOrInsert(
-                ['role_id' => $permission->role_id, 'menu_id' => self::MERCHANTS_MENU_ID],
+                ['role_id' => $permission->role_id, 'menu_id' => $merchantsMenuId],
                 [
                     'can_view' => $permission->can_view,
                     'can_add' => $permission->can_add,
@@ -57,10 +58,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('role_menu_permissions')->where('menu_id', self::MERCHANTS_MENU_ID)->delete();
+        $merchantsMenuId = DB::table('menus')->where('slug', 'merchants')->value('id');
+
+        DB::table('role_menu_permissions')->where('menu_id', $merchantsMenuId)->delete();
 
         DB::table('menus')
-            ->where('id', self::MERCHANTS_MENU_ID)
+            ->where('id', $merchantsMenuId)
             ->update([
                 'parent_id' => null,
                 'is_title' => 1,

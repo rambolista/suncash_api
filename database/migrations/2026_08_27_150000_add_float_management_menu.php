@@ -15,18 +15,20 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const MAIN_MENU_ID = 1;
-
     public function up(): void
     {
         $now = now();
+
+        // Resolved by slug, not a hardcoded id — see the note in
+        // 2026_08_27_110000_nest_merchants_menu_under_main.php.
+        $mainMenuId = DB::table('menus')->where('slug', 'main')->whereNull('parent_id')->value('id');
 
         $floatManagementId = DB::table('menus')->insertGetId([
             'label' => 'Float Management',
             'slug' => 'pages:float-management',
             'url' => null,
             'icon' => 'building-bank',
-            'parent_id' => self::MAIN_MENU_ID,
+            'parent_id' => $mainMenuId,
             'sort_order' => 3,
             'is_title' => 0,
             'is_active' => 1,

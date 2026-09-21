@@ -13,14 +13,16 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const CUSTOMERS_MENU_ID = 293;
-
     public function up(): void
     {
         $now = now();
 
+        // Resolved by slug, not a hardcoded id — see the note in
+        // 2026_08_27_110000_nest_merchants_menu_under_main.php.
+        $customersMenuId = DB::table('menus')->where('slug', 'customers')->value('id');
+
         $archiveMenuId = DB::table('menus')->insertGetId([
-            'parent_id' => self::CUSTOMERS_MENU_ID,
+            'parent_id' => $customersMenuId,
             'label' => 'Archive',
             'slug' => 'pages:customers-archive',
             'url' => '/customers/archive',
@@ -59,7 +61,7 @@ return new class extends Migration
         ]);
 
         $logsMenuId = DB::table('menus')->insertGetId([
-            'parent_id' => self::CUSTOMERS_MENU_ID,
+            'parent_id' => $customersMenuId,
             'label' => 'Customer Logs',
             'slug' => 'pages:customers-logs',
             'url' => '/customers/logs',
@@ -97,7 +99,7 @@ return new class extends Migration
         ]);
 
         $failedLogsMenuId = DB::table('menus')->insertGetId([
-            'parent_id' => self::CUSTOMERS_MENU_ID,
+            'parent_id' => $customersMenuId,
             'label' => 'Customer Failed Linking Logs',
             'slug' => 'pages:customers-failed-logs',
             'url' => '/customers/failed-logs',

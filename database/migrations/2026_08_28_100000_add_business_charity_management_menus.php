@@ -13,11 +13,13 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const MERCHANTS_MENU_ID = 295;
-
     public function up(): void
     {
         $now = now();
+
+        // Resolved by slug, not a hardcoded id — see the note in
+        // 2026_08_27_110000_nest_merchants_menu_under_main.php.
+        $merchantsMenuId = DB::table('menus')->where('slug', 'merchants')->value('id');
 
         $menus = [
             ['label' => 'Business Management', 'slug' => 'pages:merchants-business-management', 'url' => '/merchants/business-management', 'icon' => 'building-store', 'sort_order' => 1],
@@ -28,7 +30,7 @@ return new class extends Migration
 
         foreach ($menus as $menu) {
             $menuIds[] = DB::table('menus')->insertGetId($menu + [
-                'parent_id' => self::MERCHANTS_MENU_ID,
+                'parent_id' => $merchantsMenuId,
                 'is_title' => 0,
                 'is_active' => 1,
                 'is_disabled' => 0,

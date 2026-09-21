@@ -14,18 +14,20 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const MAIN_MENU_ID = 1;
-
     public function up(): void
     {
         $now = now();
+
+        // Resolved by slug, not a hardcoded id — see the note in
+        // 2026_08_27_110000_nest_merchants_menu_under_main.php.
+        $mainMenuId = DB::table('menus')->where('slug', 'main')->whereNull('parent_id')->value('id');
 
         $promotionsId = DB::table('menus')->insertGetId([
             'label' => 'Promotions',
             'slug' => 'pages:promotions',
             'url' => null,
             'icon' => 'gift',
-            'parent_id' => self::MAIN_MENU_ID,
+            'parent_id' => $mainMenuId,
             'sort_order' => 2,
             'is_title' => 0,
             'is_active' => 1,

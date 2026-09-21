@@ -5,9 +5,10 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Legacy admin's "Kiosk" sidebar section (`fastpay::dashboard()`), first
- * item is "Monitoring Dashboard". Inserted right after "Transactions"
- * (sort_order 4), so Float Management/Giftcards/Promotions shift down by
- * one, matching the same pattern used for Transactions itself.
+ * item is "Monitoring Dashboard". The "Kiosk" section itself is created by
+ * `2026_09_02_110000_ensure_kiosk_menu_section` (dated earlier so every
+ * other Kiosk child migration can resolve it) — this just adds its first
+ * child under it.
  */
 return new class extends Migration
 {
@@ -15,30 +16,7 @@ return new class extends Migration
     {
         $now = now();
 
-        $mainMenuId = DB::table('menus')->where('slug', 'main')->whereNull('parent_id')->value('id');
-
-        DB::table('menus')->where('parent_id', $mainMenuId)->where('sort_order', '>=', 5)->increment('sort_order');
-
-        $sectionId = DB::table('menus')->insertGetId([
-            'parent_id' => $mainMenuId,
-            'label' => 'Kiosk',
-            'slug' => 'pages:kiosk',
-            'url' => null,
-            'icon' => 'device-desktop-analytics',
-            'sort_order' => 5,
-            'is_title' => 0,
-            'is_active' => 1,
-            'is_disabled' => 0,
-            'is_special' => 0,
-            'tab_layout' => 'horizontal',
-            'supports_view' => 1,
-            'supports_add' => 0,
-            'supports_edit' => 0,
-            'supports_delete' => 0,
-            'supports_approve' => 0,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $sectionId = DB::table('menus')->where('slug', 'pages:kiosk')->value('id');
 
         $menuId = DB::table('menus')->insertGetId([
             'parent_id' => $sectionId,
@@ -86,12 +64,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        $mainMenuId = DB::table('menus')->where('slug', 'main')->whereNull('parent_id')->value('id');
-
-        $menuIds = DB::table('menus')->whereIn('slug', ['pages:kiosk', 'pages:kiosk-monitoring-dashboard'])->pluck('id');
-        DB::table('role_menu_permissions')->whereIn('menu_id', $menuIds)->delete();
-        DB::table('menus')->whereIn('id', $menuIds)->delete();
-
-        DB::table('menus')->where('parent_id', $mainMenuId)->where('sort_order', '>', 5)->decrement('sort_order');
+        // Only this migration's own child — the "Kiosk" section itself is
+        // owned by 2026_09_02_110000_ensure_kiosk_menu_section.
+        $menuId = DB::table('menus')->where('slug', 'pages:kiosk-monitoring-dashboard')->value('id');
+        DB::table('role_menu_permissions')->where('menu_id', $menuId)->delete();
+        DB::table('menus')->where('id', $menuId)->delete();
     }
 };

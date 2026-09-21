@@ -11,14 +11,19 @@ use Illuminate\Support\Facades\DB;
  */
 return new class extends Migration
 {
-    private const TRANSACTIONS_MENU_ID = 329;
-
     public function up(): void
     {
         $now = now();
 
+        // Resolved by slug, not a hardcoded id — the "Transactions" section's
+        // actual auto-increment id depends on how many other menu rows exist
+        // before it, which varies across environments (a hardcoded id here
+        // previously pointed at the wrong section — often "Administration" —
+        // on a freshly migrated database).
+        $transactionsMenuId = DB::table('menus')->where('slug', 'pages:transactions')->value('id');
+
         $menuId = DB::table('menus')->insertGetId([
-            'parent_id' => self::TRANSACTIONS_MENU_ID,
+            'parent_id' => $transactionsMenuId,
             'label' => 'Resend Transaction Receipt',
             'slug' => 'pages:transactions-resend-receipt',
             'url' => '/transactions/resend-receipt',
