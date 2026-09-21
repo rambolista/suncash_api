@@ -105,10 +105,14 @@ class KycUpgradeService
         ];
     }
 
+    private const STATUSES = ['pending' => Customer::ACCESS_PENDING, 'approved' => Customer::ACCESS_FULL, 'rejected' => Customer::ACCESS_REJECTED];
+
+    private const PER_PAGE = 300;
+
     public function list(): array
     {
         $result = [];
-        foreach (['pending' => Customer::ACCESS_PENDING, 'approved' => Customer::ACCESS_FULL, 'rejected' => Customer::ACCESS_REJECTED] as $key => $status) {
+        foreach (self::STATUSES as $key => $status) {
             $result[$key] = Customer::where('customer_access', $status)
                 ->orderBy('create_on')
                 ->get()
@@ -117,6 +121,74 @@ class KycUpgradeService
         }
 
         return $result;
+    }
+
+    /** Tab badge counts — same indexed `customer_access` lookup as the list query, just COUNT instead of SELECT. */
+    public function counts(): array
+    {
+        return array_map(fn ($status) => Customer::where('customer_access', $status)->count(), self::STATUSES);
+    }
+
+    private function nameSubquery(string $name): \Closure
+    {
+        return fn ($sub) => $sub->whereRaw("CONCAT(first_name, ' ', last_name) like ?", ["%{$name}%"])
+            ->orWhere('first_name', 'like', "%{$name}%")
+            ->orWhere('last_name', 'like', "%{$name}%");
+    }
+
+    /** Global "search everything" box — OR's across every visible column, matching every record, not just the loaded page. */
+    private function applySearch(\Illuminate\Database\Eloquent\Builder $query, string $search): void
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where($this->nameSubquery($search))
+                ->orWhere('mobile', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('reason_reject', 'like', "%{$search}%");
+        });
+    }
+
+    /** Per-column filters — AND'd together, each independently narrowing the result set. */
+    private function applyColumnFilters(\Illuminate\Database\Eloquent\Builder $query, array $filters): void
+    {
+        if (filled($filters['created_at'] ?? null)) {
+            $query->where('create_on', 'like', '%'.$filters['created_at'].'%');
+        }
+        if (filled($filters['name'] ?? null)) {
+            $query->where($this->nameSubquery($filters['name']));
+        }
+        if (filled($filters['mobile'] ?? null)) {
+            $query->where('mobile', 'like', '%'.$filters['mobile'].'%');
+        }
+        if (filled($filters['email'] ?? null)) {
+            $query->where('email', 'like', '%'.$filters['email'].'%');
+        }
+        if (filled($filters['reason_reject'] ?? null)) {
+            $query->where('reason_reject', 'like', '%'.$filters['reason_reject'].'%');
+        }
+        if (filled($filters['updated_at'] ?? null)) {
+            $query->where('updated_on', 'like', '%'.$filters['updated_at'].'%');
+        }
+    }
+
+    public function paginatedList(string $statusKey, int $page, ?string $search = null, array $columnFilters = []): array
+    {
+        $status = self::STATUSES[$statusKey] ?? self::STATUSES['pending'];
+
+        $query = Customer::where('customer_access', $status);
+        if (filled($search)) {
+            $this->applySearch($query, $search);
+        }
+        $this->applyColumnFilters($query, $columnFilters);
+
+        $paginator = $query->orderBy('create_on')->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
+
+        return [
+            'data' => $paginator->getCollection()->map(fn (Customer $customer) => $this->present($customer))->all(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
     }
 
     public function exportRows(?string $status = null): array

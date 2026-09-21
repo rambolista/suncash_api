@@ -48,7 +48,26 @@ class KycUpgradeController extends Controller
             return $response;
         }
 
-        return response()->json($this->kyc->list() + ['reject_reasons' => KycUpgradeService::REJECT_REASONS]);
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string', 'in:pending,approved,rejected'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'created_at' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'mobile' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'email' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'reason_reject' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'updated_at' => ['sometimes', 'nullable', 'string', 'max:20'],
+        ]);
+
+        $columnFilters = collect($validated)
+            ->only(['created_at', 'name', 'mobile', 'email', 'reason_reject', 'updated_at'])
+            ->filter()
+            ->all();
+
+        $page = $this->kyc->paginatedList($validated['status'] ?? 'pending', (int) ($validated['page'] ?? 1), $validated['search'] ?? null, $columnFilters);
+
+        return response()->json($page + ['counts' => $this->kyc->counts(), 'reject_reasons' => KycUpgradeService::REJECT_REASONS]);
     }
 
     public function show(Request $request, int $id): JsonResponse
