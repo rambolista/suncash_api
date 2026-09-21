@@ -66,7 +66,16 @@ class CustomerSettlementService
         };
     }
 
-    private function dueDate(CustomerSettlement $settlement): ?string
+    /** Both possible due-day settings, fetched once instead of per row (every pending row was re-querying this). */
+    private function dueDayCache(): array
+    {
+        return [
+            'standard' => (int) (SystemSetting::where('set_code', 'customer_withdrawal_due_standard')->value('set_value') ?? 3),
+            'express' => (int) (SystemSetting::where('set_code', 'customer_withdrawal_due_express')->value('set_value') ?? 1),
+        ];
+    }
+
+    private function dueDate(CustomerSettlement $settlement, array $dueDays): ?string
     {
         if ($settlement->status !== CustomerSettlement::STATUS_PENDING) {
             return null;
@@ -77,11 +86,7 @@ class CustomerSettlementService
             return 'OverDue';
         }
 
-        $days = (int) (SystemSetting::where('set_code', $wtype === 'express'
-            ? 'customer_withdrawal_due_express'
-            : 'customer_withdrawal_due_standard')->value('set_value') ?? ($wtype === 'express' ? 1 : 3));
-
-        $due = Carbon::parse($settlement->created_date)->addDays($days);
+        $due = Carbon::parse($settlement->created_date)->addDays($dueDays[$wtype]);
 
         return $due->isPast() ? 'OverDue' : $due->toDateTimeString();
     }
@@ -91,8 +96,18 @@ class CustomerSettlementService
      * mirrors legacy's channel-branching CASE WHEN in getCustomerSettlements()
      * / getCustomerSettlementInfo() into one place shared by the list and
      * detail views.
+     *
+     * `$customerCache`/`$byMobileCache`/`$bankCache`, when given (see
+     * `list()`), let a whole page of rows share one batched query per
+     * lookup shape instead of one query per row per channel branch.
+     *
+     * ponytail: the "Kiosk" branch's `KioskBankAccount` two-tier lookup
+     * (scoped-by-id, falling back to customer_number-only) is still
+     * per-row — batching a two-tier conditional lookup cleanly needs more
+     * than a keyed cache. Kiosk is ~12% of rows; upgrade this the same way
+     * if it ever shows up as the dominant cost in production query logs.
      */
-    private function resolveIdentity(CustomerSettlement $settlement): array
+    private function resolveIdentity(CustomerSettlement $settlement, array $customerCache = [], array $byMobileCache = [], array $bankCache = []): array
     {
         $channel = $settlement->channel ?: 'CUSTOMERAPP';
         $customerId = $settlement->customer_id;
@@ -105,7 +120,7 @@ class CustomerSettlementService
         $displayName = null;
 
         if ($channel === 'Kiosk') {
-            $byMobile = Customer::where('mobile', $settlement->customer_number)->first();
+            $byMobile = $byMobileCache[$settlement->customer_number] ?? Customer::where('mobile', $settlement->customer_number)->first();
             $firstName = $byMobile?->first_name;
             $lastName = $byMobile?->last_name;
 
@@ -127,13 +142,13 @@ class CustomerSettlementService
             $lastName = $manager?->manager_lastname;
             $email = $manager?->email;
         } elseif ($hasCustomer) {
-            $customer = Customer::find($customerId);
+            $customer = $customerCache[$customerId] ?? Customer::find($customerId);
             $firstName = $customer?->first_name;
             $lastName = $customer?->last_name;
             $mobile = $customer?->mobile ?: $mobile;
             $email = $customer?->email;
         } else {
-            $bank = $settlement->linked_bank_branch_id ? CustomerBank::find($settlement->linked_bank_branch_id) : null;
+            $bank = $settlement->linked_bank_branch_id ? ($bankCache[$settlement->linked_bank_branch_id] ?? CustomerBank::find($settlement->linked_bank_branch_id)) : null;
             $firstName = $bank?->first_name;
             $lastName = $bank?->last_name;
             $mobile = $bank?->mobile ?: $mobile;
@@ -205,9 +220,9 @@ class CustomerSettlementService
         ];
     }
 
-    private function mapListRow(CustomerSettlement $settlement): array
+    private function mapListRow(CustomerSettlement $settlement, array $customerCache = [], array $userAccountCache = [], ?array $dueDays = null, array $byMobileCache = [], array $bankCache = []): array
     {
-        $identity = $this->resolveIdentity($settlement);
+        $identity = $this->resolveIdentity($settlement, $customerCache, $byMobileCache, $bankCache);
 
         return [
             'id' => $settlement->id,
@@ -216,24 +231,58 @@ class CustomerSettlementService
             'channel' => $identity['channel'],
             'withdrawal_type' => $this->withdrawalTypeLabel($settlement->withdrawal_type),
             'amount' => (float) $settlement->amount,
-            'due_date' => $this->dueDate($settlement),
+            'due_date' => $this->dueDate($settlement, $dueDays ?? $this->dueDayCache()),
             'status' => $settlement->status,
             'created_date' => $settlement->created_date,
             'updated_date' => $settlement->updated_date,
-            'updated_by_user' => $settlement->updated_by ? UserAccount::where('id', $settlement->updated_by)->value('user_name') : null,
+            'updated_by_user' => $settlement->updated_by ? ($userAccountCache[$settlement->updated_by] ?? UserAccount::where('id', $settlement->updated_by)->value('user_name')) : null,
         ];
     }
+
+    /**
+     * "Pending" is a to-do queue — every row needs to stay visible regardless
+     * of count. "Processed"/"Rejected" are pure historical archives that
+     * only ever grow, so they're capped to the most recent page; `_total`
+     * carries the true count for the tab badge.
+     */
+    private const HISTORICAL_LIMIT = 300;
 
     public function list(): array
     {
         $result = [];
+        $dueDays = $this->dueDayCache();
+
         foreach (self::STATUSES as $key => $status) {
-            $result[$key] = CustomerSettlement::where('withdrawal_type', '!=', '')
-                ->where('status', $status)
-                ->orderByDesc('created_date')
-                ->get()
-                ->map(fn (CustomerSettlement $s) => $this->mapListRow($s))
-                ->all();
+            $query = CustomerSettlement::where('withdrawal_type', '!=', '')->where('status', $status);
+            $total = (clone $query)->count();
+
+            $query->orderByDesc('created_date');
+            if ($key !== 'pending') {
+                $query->limit(self::HISTORICAL_LIMIT);
+            }
+            $settlements = $query->get();
+
+            // Batch the two queries every row would otherwise repeat individually.
+            $customerIds = $settlements
+                ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
+                    && $s->customer_id !== null && (string) $s->customer_id !== '-1')
+                ->pluck('customer_id')->unique()->values();
+            $customerCache = Customer::whereIn('id', $customerIds)->get()->keyBy('id')->all();
+
+            $updatedByIds = $settlements->pluck('updated_by')->filter()->unique()->values();
+            $userAccountCache = UserAccount::whereIn('id', $updatedByIds)->pluck('user_name', 'id')->all();
+
+            $kioskMobiles = $settlements->where('channel', 'Kiosk')->pluck('customer_number')->filter()->unique()->values();
+            $byMobileCache = Customer::whereIn('mobile', $kioskMobiles)->get()->keyBy('mobile')->all();
+
+            $bankBranchIds = $settlements
+                ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
+                    && ($s->customer_id === null || (string) $s->customer_id === '-1'))
+                ->pluck('linked_bank_branch_id')->filter()->unique()->values();
+            $bankCache = CustomerBank::whereIn('id', $bankBranchIds)->get()->keyBy('id')->all();
+
+            $result[$key] = $settlements->map(fn (CustomerSettlement $s) => $this->mapListRow($s, $customerCache, $userAccountCache, $dueDays, $byMobileCache, $bankCache))->all();
+            $result[$key.'_total'] = $total;
         }
 
         return $result;
