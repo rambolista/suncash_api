@@ -253,6 +253,84 @@ class CustomerSettlementService
     }
 
     /**
+     * Shared by the global search (OR'd against everything else) and the
+     * per-column "Customer Name" filter (AND'd) — only covers the
+     * CUSTOMERAPP-style `customer_id` link, not Kiosk's AES-encrypted
+     * `KioskBankAccount` name (can't search encrypted data in SQL), a real
+     * but narrow gap left as-is rather than resolving every row's identity
+     * just to filter.
+     */
+    private function customerNameSubquery(string $name): \Closure
+    {
+        return fn ($sub) => $sub->select('id')->from('customers')
+            ->whereRaw("CONCAT(first_name, ' ', last_name) like ?", ["%{$name}%"])
+            ->orWhere('first_name', 'like', "%{$name}%")
+            ->orWhere('last_name', 'like', "%{$name}%")
+            ->orWhere('mobile', 'like', "%{$name}%")
+            ->orWhere('email', 'like', "%{$name}%");
+    }
+
+    /**
+     * The single "search everything" box — matches transaction id (exact,
+     * once digits-only), customer_number/channel/withdrawal_type
+     * (substring), or the linked customer's name/mobile/email — all in SQL,
+     * before pagination, so a match on page 12 is actually findable instead
+     * of requiring "Next" 12 times.
+     */
+    private function applySearch(\Illuminate\Database\Eloquent\Builder $query, string $search): void
+    {
+        $digits = preg_replace('/\D/', '', $search);
+
+        $query->where(function ($q) use ($search, $digits) {
+            if ($digits !== '') {
+                $q->orWhere('id', (int) $digits);
+            }
+            $q->orWhere('customer_number', 'like', "%{$search}%")
+                ->orWhere('channel', 'like', "%{$search}%")
+                ->orWhere('withdrawal_type', 'like', "%{$search}%")
+                ->orWhereIn('customer_id', $this->customerNameSubquery($search));
+        });
+    }
+
+    /**
+     * Per-column filters (Date/Time Submitted, Transaction ID, Customer
+     * Name, Processed From, Withdrawal Type, Amount, and — Processed/
+     * Rejected tabs only — Date Processed/Rejected + Processed/Rejected By).
+     * Each provided filter narrows the result set further (AND), unlike
+     * `applySearch()`'s single OR'd term. "Due Date" isn't here — it's
+     * computed at read time (created_date + a business-rule offset), not a
+     * stored column, so it can't be filtered in SQL the same way.
+     */
+    private function applyColumnFilters(\Illuminate\Database\Eloquent\Builder $query, array $filters): void
+    {
+        if (filled($filters['transaction_id'] ?? null)) {
+            $digits = preg_replace('/\D/', '', $filters['transaction_id']);
+            $query->where('id', $digits !== '' ? (int) $digits : -1);
+        }
+        if (filled($filters['customer_name'] ?? null)) {
+            $query->whereIn('customer_id', $this->customerNameSubquery($filters['customer_name']));
+        }
+        if (filled($filters['channel'] ?? null)) {
+            $query->where('channel', 'like', '%'.$filters['channel'].'%');
+        }
+        if (filled($filters['withdrawal_type'] ?? null)) {
+            $query->where('withdrawal_type', 'like', '%'.$filters['withdrawal_type'].'%');
+        }
+        if (filled($filters['amount'] ?? null)) {
+            $query->whereRaw('CAST(amount AS CHAR) like ?', ['%'.$filters['amount'].'%']);
+        }
+        if (filled($filters['created_date'] ?? null)) {
+            $query->whereRaw('CAST(created_date AS CHAR) like ?', ['%'.$filters['created_date'].'%']);
+        }
+        if (filled($filters['updated_date'] ?? null)) {
+            $query->whereRaw('CAST(updated_date AS CHAR) like ?', ['%'.$filters['updated_date'].'%']);
+        }
+        if (filled($filters['updated_by'] ?? null)) {
+            $query->whereIn('updated_by', fn ($sub) => $sub->select('id')->from('user_account')->where('user_name', 'like', '%'.$filters['updated_by'].'%'));
+        }
+    }
+
+    /**
      * Real server-side pagination, 300 rows per page — replaces an earlier
      * "just cap it" approach that made older history unreachable. Every
      * status is paginated the same way, including "Pending": that doesn't
@@ -262,16 +340,19 @@ class CustomerSettlementService
      *
      * @throws ValidationException
      */
-    public function paginatedList(string $statusKey, int $page): array
+    public function paginatedList(string $statusKey, int $page, ?string $search = null, array $columnFilters = []): array
     {
         if (! array_key_exists($statusKey, self::STATUSES)) {
             throw ValidationException::withMessages(['status' => ['Invalid status.']]);
         }
 
-        $paginator = CustomerSettlement::where('withdrawal_type', '!=', '')
-            ->where('status', self::STATUSES[$statusKey])
-            ->orderByDesc('created_date')
-            ->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
+        $query = CustomerSettlement::where('withdrawal_type', '!=', '')->where('status', self::STATUSES[$statusKey]);
+        if (filled($search)) {
+            $this->applySearch($query, trim($search));
+        }
+        $this->applyColumnFilters($query, $columnFilters);
+
+        $paginator = $query->orderByDesc('created_date')->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
 
         $settlements = $paginator->getCollection();
         $dueDays = $this->dueDayCache();

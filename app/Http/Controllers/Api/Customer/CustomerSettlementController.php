@@ -38,10 +38,24 @@ class CustomerSettlementController extends Controller
         $validated = $request->validate([
             'status' => ['sometimes', 'string', 'in:pending,approved,rejected'],
             'page' => ['sometimes', 'integer', 'min:1'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'transaction_id' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'customer_name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'channel' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'withdrawal_type' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'amount' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'created_date' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'updated_date' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'updated_by' => ['sometimes', 'nullable', 'string', 'max:50'],
         ]);
 
+        $columnFilters = collect($validated)
+            ->only(['transaction_id', 'customer_name', 'channel', 'withdrawal_type', 'amount', 'created_date', 'updated_date', 'updated_by'])
+            ->filter()
+            ->all();
+
         try {
-            $page = $this->settlements->paginatedList($validated['status'] ?? 'pending', (int) ($validated['page'] ?? 1));
+            $page = $this->settlements->paginatedList($validated['status'] ?? 'pending', (int) ($validated['page'] ?? 1), $validated['search'] ?? null, $columnFilters);
         } catch (ValidationException $exception) {
             return $this->invalid($exception);
         }
