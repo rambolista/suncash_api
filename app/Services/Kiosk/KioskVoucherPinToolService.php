@@ -5,6 +5,7 @@ namespace App\Services\Kiosk;
 use App\Models\Mysuncash\MerchantVoucher;
 use App\Models\Mysuncash\UniversalVoucher;
 use App\Models\Mysuncash\WebLog;
+use App\Services\Concerns\DecryptsVoucherPin;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -33,6 +34,8 @@ use Illuminate\Validation\ValidationException;
  */
 class KioskVoucherPinToolService
 {
+    use DecryptsVoucherPin;
+
     private const TYPE_SUNCASH = 'suncash';
 
     private const TYPE_UNIBUCKS = 'unibucks';
@@ -63,23 +66,10 @@ class KioskVoucherPinToolService
         }
 
         return [
-            'pin' => $this->pin($voucher),
+            'pin' => $this->voucherPin($voucher),
             'voucher_date' => $voucher->voucher_date,
             'status' => $voucher->status,
             'redeemed_date' => $voucher->status === $voucher::STATUS_ACTIVE ? null : $voucher->update_date,
         ];
-    }
-
-    private function pin(MerchantVoucher|UniversalVoucher $voucher): ?string
-    {
-        if (! $voucher->is_pin_encrypted) {
-            return $voucher->pin;
-        }
-
-        $key = (string) config('services.voucher.crypt_key');
-        $iv = base64_decode((string) config('services.voucher.iv'));
-        $decrypted = openssl_decrypt(base64_decode((string) $voucher->pin), 'aes-128-cbc', $key, OPENSSL_RAW_DATA, $iv);
-
-        return $decrypted !== false && $decrypted !== '' ? $decrypted : null;
     }
 }

@@ -32,7 +32,10 @@ class MerchantStatementService
                 'id' => $m->id,
                 'dba_name' => $m->dba_name,
                 'suntag_shortcode' => $m->suntag_shortcode,
-                'client_prefund' => (float) $m->client_prefund,
+                // `client_prefund` is a `double` column — round off its binary
+                // floating-point drift (e.g. 2719.510000000002) so it doesn't
+                // leak into the frontend's balance search as bogus digits.
+                'client_prefund' => round((float) $m->client_prefund, 2),
             ])
             ->all();
     }
@@ -57,12 +60,15 @@ class MerchantStatementService
         return [
             'id' => $transaction->id,
             'timestamp' => $transaction->timestamp,
-            'amount' => (float) $transaction->amount,
+            // `amount` is a `double` column (same floating-point drift risk as
+            // `client_prefund` above); the balance columns are already clean
+            // `decimal` columns, rounded here too for consistency.
+            'amount' => round((float) $transaction->amount, 2),
             'description' => $transaction->description,
             'reference_no' => $transaction->ref_trans_id,
-            'running_balance' => (float) $transaction->running_balance,
-            'available_balance' => (float) $transaction->available_balance,
-            'onhold_balance' => (float) $transaction->onhold_balance,
+            'running_balance' => round((float) $transaction->running_balance, 2),
+            'available_balance' => round((float) $transaction->available_balance, 2),
+            'onhold_balance' => round((float) $transaction->onhold_balance, 2),
             'transtype' => $direction === 0 ? 'CREDIT' : ($direction === 1 ? 'DEBIT' : 'UNKNOWN'),
         ];
     }
@@ -89,7 +95,7 @@ class MerchantStatementService
                 'id' => $merchant->id,
                 'dba_name' => $merchant->dba_name,
                 'suntag_shortcode' => $merchant->suntag_shortcode,
-                'client_prefund' => (float) $merchant->client_prefund,
+                'client_prefund' => round((float) $merchant->client_prefund, 2),
             ],
             'rows' => $rows,
         ];

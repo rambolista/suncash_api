@@ -100,6 +100,7 @@ use App\Http\Controllers\Api\Settings\NotificationSettingController;
 use App\Http\Controllers\Api\Settings\SmsGatewaySettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
+use App\Http\Controllers\Api\Transactions\ResendVoucherController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
@@ -513,6 +514,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/generate', [TransactionReceiptController::class, 'generate']);
         Route::post('/send', [TransactionReceiptController::class, 'send']);
     });
+
+    Route::post('/resend-voucher', [ResendVoucherController::class, 'resend']);
 
     Route::prefix('kiosk-monitoring')->group(function () {
         Route::get('/', [KioskMonitoringController::class, 'index']);

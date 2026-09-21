@@ -88,7 +88,11 @@ class BusinessBillpayService
             'amount' => (float) $bt->amount,
             'fee' => (float) $bt->fee,
             'vat' => (float) $bt->vat,
-            'total' => (float) $bt->amount + (float) $bt->fee,
+            // Same float-drift risk as Merchant Statement's `client_prefund`, just
+            // introduced here by unrounded PHP addition (e.g. 29.99 + 3.00 comes
+            // back as 32.989999999999995) rather than drift already at rest in
+            // the column — round it before it reaches the frontend's search index.
+            'total' => round((float) $bt->amount + (float) $bt->fee, 2),
             'status' => $bt->status,
             'reference_number' => $bt->reference_number,
             'created_at' => $bt->created_at,
