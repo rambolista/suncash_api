@@ -35,7 +35,18 @@ class CustomerSettlementController extends Controller
             return $response;
         }
 
-        return response()->json($this->settlements->list());
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string', 'in:pending,approved,rejected'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $page = $this->settlements->paginatedList($validated['status'] ?? 'pending', (int) ($validated['page'] ?? 1));
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json($page + ['counts' => $this->settlements->counts()]);
     }
 
     public function show(Request $request, int $id): JsonResponse

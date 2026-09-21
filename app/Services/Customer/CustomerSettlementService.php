@@ -239,53 +239,69 @@ class CustomerSettlementService
         ];
     }
 
-    /**
-     * "Pending" is a to-do queue — every row needs to stay visible regardless
-     * of count. "Processed"/"Rejected" are pure historical archives that
-     * only ever grow, so they're capped to the most recent page; `_total`
-     * carries the true count for the tab badge.
-     */
-    private const HISTORICAL_LIMIT = 300;
+    private const PER_PAGE = 300;
 
-    public function list(): array
+    /** Tab badge counts — 3 cheap indexed COUNT queries, independent of whichever tab's page is being loaded. */
+    public function counts(): array
     {
-        $result = [];
-        $dueDays = $this->dueDayCache();
-
+        $counts = [];
         foreach (self::STATUSES as $key => $status) {
-            $query = CustomerSettlement::where('withdrawal_type', '!=', '')->where('status', $status);
-            $total = (clone $query)->count();
-
-            $query->orderByDesc('created_date');
-            if ($key !== 'pending') {
-                $query->limit(self::HISTORICAL_LIMIT);
-            }
-            $settlements = $query->get();
-
-            // Batch the two queries every row would otherwise repeat individually.
-            $customerIds = $settlements
-                ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
-                    && $s->customer_id !== null && (string) $s->customer_id !== '-1')
-                ->pluck('customer_id')->unique()->values();
-            $customerCache = Customer::whereIn('id', $customerIds)->get()->keyBy('id')->all();
-
-            $updatedByIds = $settlements->pluck('updated_by')->filter()->unique()->values();
-            $userAccountCache = UserAccount::whereIn('id', $updatedByIds)->pluck('user_name', 'id')->all();
-
-            $kioskMobiles = $settlements->where('channel', 'Kiosk')->pluck('customer_number')->filter()->unique()->values();
-            $byMobileCache = Customer::whereIn('mobile', $kioskMobiles)->get()->keyBy('mobile')->all();
-
-            $bankBranchIds = $settlements
-                ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
-                    && ($s->customer_id === null || (string) $s->customer_id === '-1'))
-                ->pluck('linked_bank_branch_id')->filter()->unique()->values();
-            $bankCache = CustomerBank::whereIn('id', $bankBranchIds)->get()->keyBy('id')->all();
-
-            $result[$key] = $settlements->map(fn (CustomerSettlement $s) => $this->mapListRow($s, $customerCache, $userAccountCache, $dueDays, $byMobileCache, $bankCache))->all();
-            $result[$key.'_total'] = $total;
+            $counts[$key] = CustomerSettlement::where('withdrawal_type', '!=', '')->where('status', $status)->count();
         }
 
-        return $result;
+        return $counts;
+    }
+
+    /**
+     * Real server-side pagination, 300 rows per page — replaces an earlier
+     * "just cap it" approach that made older history unreachable. Every
+     * status is paginated the same way, including "Pending": that doesn't
+     * hide anything from the queue, it's still fully browsable page by page,
+     * it just stops loading (and querying identities for) rows the admin
+     * isn't looking at yet.
+     *
+     * @throws ValidationException
+     */
+    public function paginatedList(string $statusKey, int $page): array
+    {
+        if (! array_key_exists($statusKey, self::STATUSES)) {
+            throw ValidationException::withMessages(['status' => ['Invalid status.']]);
+        }
+
+        $paginator = CustomerSettlement::where('withdrawal_type', '!=', '')
+            ->where('status', self::STATUSES[$statusKey])
+            ->orderByDesc('created_date')
+            ->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
+
+        $settlements = $paginator->getCollection();
+        $dueDays = $this->dueDayCache();
+
+        // Batch the queries every row would otherwise repeat individually.
+        $customerIds = $settlements
+            ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
+                && $s->customer_id !== null && (string) $s->customer_id !== '-1')
+            ->pluck('customer_id')->unique()->values();
+        $customerCache = Customer::whereIn('id', $customerIds)->get()->keyBy('id')->all();
+
+        $updatedByIds = $settlements->pluck('updated_by')->filter()->unique()->values();
+        $userAccountCache = UserAccount::whereIn('id', $updatedByIds)->pluck('user_name', 'id')->all();
+
+        $kioskMobiles = $settlements->where('channel', 'Kiosk')->pluck('customer_number')->filter()->unique()->values();
+        $byMobileCache = Customer::whereIn('mobile', $kioskMobiles)->get()->keyBy('mobile')->all();
+
+        $bankBranchIds = $settlements
+            ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
+                && ($s->customer_id === null || (string) $s->customer_id === '-1'))
+            ->pluck('linked_bank_branch_id')->filter()->unique()->values();
+        $bankCache = CustomerBank::whereIn('id', $bankBranchIds)->get()->keyBy('id')->all();
+
+        return [
+            'data' => $settlements->map(fn (CustomerSettlement $s) => $this->mapListRow($s, $customerCache, $userAccountCache, $dueDays, $byMobileCache, $bankCache))->all(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
     }
 
     /**
