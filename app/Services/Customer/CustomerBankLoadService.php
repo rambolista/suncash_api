@@ -107,30 +107,34 @@ class CustomerBankLoadService
      * Loads row is treated as "standard" timing regardless of anything
      * else. Mirrored here as simply always using the standard setting.
      */
-    private function dueDate(CustomerSettlement $settlement): ?string
+    private function dueDays(): int
+    {
+        return (int) (SystemSetting::where('set_code', 'customer_withdrawal_due_standard')->value('set_value') ?? 3);
+    }
+
+    private function dueDate(CustomerSettlement $settlement, int $dueDays): ?string
     {
         if ($settlement->status !== CustomerSettlement::STATUS_PENDING) {
             return null;
         }
 
-        $days = (int) (SystemSetting::where('set_code', 'customer_withdrawal_due_standard')->value('set_value') ?? 3);
-        $due = Carbon::parse($settlement->created_date)->addDays($days);
+        $due = Carbon::parse($settlement->created_date)->addDays($dueDays);
 
         return $due->isPast() ? 'OverDue' : $due->toDateTimeString();
     }
 
-    private function mapListRow(CustomerSettlement $settlement): array
+    private function mapListRow(CustomerSettlement $settlement, int $dueDays, array $userNameCache = []): array
     {
         return [
             'id' => $settlement->id,
             'transaction_id' => sprintf('%08d', $settlement->id),
             'customer_name' => trim((string) $settlement->customer?->first_name.' '.(string) $settlement->customer?->last_name) ?: '—',
             'amount' => (float) $settlement->amount,
-            'due_date' => $this->dueDate($settlement),
+            'due_date' => $this->dueDate($settlement, $dueDays),
             'status' => $settlement->status,
             'created_date' => $settlement->created_date,
             'updated_date' => $settlement->updated_date,
-            'updated_by_user' => $settlement->updated_by ? UserAccount::where('id', $settlement->updated_by)->value('user_name') : null,
+            'updated_by_user' => $settlement->updated_by ? ($userNameCache[$settlement->updated_by] ?? UserAccount::where('id', $settlement->updated_by)->value('user_name')) : null,
         ];
     }
 
@@ -141,15 +145,24 @@ class CustomerBankLoadService
             ->where('transaction_type', 'LOAD');
     }
 
+    /** Batches the `updated_by` -> user_name lookup for a set of settlements into one query. */
+    private function userNameCache($settlements): array
+    {
+        $ids = $settlements->pluck('updated_by')->filter()->unique()->values();
+
+        return $ids->isEmpty() ? [] : UserAccount::whereIn('id', $ids)->pluck('user_name', 'id')->all();
+    }
+
     public function list(): array
     {
+        $dueDays = $this->dueDays();
         $result = [];
         foreach (self::STATUSES as $key => $status) {
-            $result[$key] = $this->baseQuery()
-                ->where('status', $status)
-                ->orderByDesc('created_date')
-                ->get()
-                ->map(fn (CustomerSettlement $s) => $this->mapListRow($s))
+            $settlements = $this->baseQuery()->where('status', $status)->orderByDesc('created_date')->get();
+            $userNameCache = $this->userNameCache($settlements);
+
+            $result[$key] = $settlements
+                ->map(fn (CustomerSettlement $s) => $this->mapListRow($s, $dueDays, $userNameCache))
                 ->all();
         }
 
@@ -231,11 +244,12 @@ class CustomerBankLoadService
     {
         $settlement = $this->findOrFail($id);
 
-        return $this->baseQuery()
-            ->where('customer_id', $settlement->customer_id)
-            ->orderByDesc('created_date')
-            ->get()
-            ->map(fn (CustomerSettlement $s) => $this->mapListRow($s))
+        $settlements = $this->baseQuery()->where('customer_id', $settlement->customer_id)->orderByDesc('created_date')->get();
+        $dueDays = $this->dueDays();
+        $userNameCache = $this->userNameCache($settlements);
+
+        return $settlements
+            ->map(fn (CustomerSettlement $s) => $this->mapListRow($s, $dueDays, $userNameCache))
             ->all();
     }
 
