@@ -38,6 +38,12 @@ return [
             'report' => false,
         ],
 
+        // `suncashfiledev` (the only bucket we have credentials for) has
+        // Block Public Access + Object Ownership "Bucket owner enforced" on
+        // it — ACLs are rejected outright and there's no bucket policy, so
+        // nothing in it can ever be a plain public URL. Landing pages/promo
+        // items/branding stay on local disk; only the "s3" disk below
+        // (customer files, read via presigned URL) actually uses this bucket.
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
@@ -47,6 +53,9 @@ return [
             'report' => false,
         ],
 
+        // Private bucket files — customer scanned ID's and similar PII, never
+        // public-read (legacy's own uploadBase64() doesn't set an ACL either).
+        // Read access goes through a short-lived presigned URL instead.
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -56,6 +65,7 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'root' => env('AWS_CUSTOMER_FILES_PATH', 'customerfiles'),
             'throw' => false,
             'report' => false,
         ],
