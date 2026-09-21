@@ -265,8 +265,11 @@ class CustomerBankLoadService
             return [];
         }
 
+        // `ezkard_transactions.ezkard_id` is a varchar column — comparing it to an int
+        // makes MySQL cast the column on every row (defeating any index on it) instead
+        // of casting this one literal, turning a 10-row lookup into a full table scan.
         return EzkardTransaction::with('transactionType')
-            ->where('ezkard_id', $customer->ezkard_account_id)
+            ->where('ezkard_id', (string) $customer->ezkard_account_id)
             ->orderByDesc('timestamp')
             ->limit(10)
             ->get()
