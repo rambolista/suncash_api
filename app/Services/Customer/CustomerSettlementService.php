@@ -481,12 +481,35 @@ class CustomerSettlementService
         $settlement = $this->findOrFail($id);
         $identity = $this->resolveIdentity($settlement);
 
-        return $this->averageScope($settlement, $identity)
+        $settlements = $this->averageScope($settlement, $identity)
             ->where('created_date', '>=', now()->subMonths(2))
             ->where('withdrawal_type', '!=', '')
             ->orderByDesc('created_date')
-            ->get()
-            ->map(fn (CustomerSettlement $s) => $this->mapListRow($s))
+            ->get();
+
+        $dueDays = $this->dueDayCache();
+
+        // Batch the queries every row would otherwise repeat individually (same as paginatedList()).
+        $customerIds = $settlements
+            ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
+                && $s->customer_id !== null && (string) $s->customer_id !== '-1')
+            ->pluck('customer_id')->unique()->values();
+        $customerCache = Customer::whereIn('id', $customerIds)->get()->keyBy('id')->all();
+
+        $updatedByIds = $settlements->pluck('updated_by')->filter()->unique()->values();
+        $userAccountCache = UserAccount::whereIn('id', $updatedByIds)->pluck('user_name', 'id')->all();
+
+        $kioskMobiles = $settlements->where('channel', 'Kiosk')->pluck('customer_number')->filter()->unique()->values();
+        $byMobileCache = Customer::whereIn('mobile', $kioskMobiles)->get()->keyBy('mobile')->all();
+
+        $bankBranchIds = $settlements
+            ->filter(fn (CustomerSettlement $s) => ! in_array($s->channel, ['Kiosk', 'KioskCommission'], true)
+                && ($s->customer_id === null || (string) $s->customer_id === '-1'))
+            ->pluck('linked_bank_branch_id')->filter()->unique()->values();
+        $bankCache = CustomerBank::whereIn('id', $bankBranchIds)->get()->keyBy('id')->all();
+
+        return $settlements
+            ->map(fn (CustomerSettlement $s) => $this->mapListRow($s, $customerCache, $userAccountCache, $dueDays, $byMobileCache, $bankCache))
             ->all();
     }
 
