@@ -18,9 +18,10 @@ use Illuminate\Support\Facades\Storage;
  * (`s3_path_type` for the `type` -> path prefix, then
  * `{path}{user_id}/{file}` as the S3 key — mirrors `save_image_post()`'s
  * upload-time path too) but skips TPP and its API key entirely: presigns
- * the S3 object directly, 20 minutes (matching legacy's `AWS_IMAGE_TIME`),
- * via the "s3_documents" disk (same bucket/credentials as "s3", no `root`
- * prefix — legacy's own keys were never rooted under `AWS_CUSTOMER_FILES_PATH`).
+ * the S3 object directly via the "s3_documents" disk (same bucket/
+ * credentials as "s3", no `root` prefix — legacy's own keys were never
+ * rooted under `AWS_CUSTOMER_FILES_PATH`). The link expires 2 minutes
+ * after each page load; reopening the page re-signs it.
  */
 trait ResolvesLegacyS3Images
 {
@@ -61,7 +62,7 @@ trait ResolvesLegacyS3Images
         $key = $path.(filled($params['user_id'] ?? null) ? $params['user_id'].'/' : '').$file;
 
         try {
-            return Storage::disk('s3_documents')->temporaryUrl($key, now()->addMinutes(20));
+            return Storage::disk('s3_documents')->temporaryUrl($key, now()->addMinutes(2));
         } catch (\Throwable) {
             return null;
         }
