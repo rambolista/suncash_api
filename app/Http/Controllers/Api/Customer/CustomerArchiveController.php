@@ -35,7 +35,24 @@ class CustomerArchiveController extends Controller
             return $response;
         }
 
-        return response()->json(['data' => $this->archive->list()]);
+        $validated = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'first_name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'last_name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'mobile_number' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'card_number' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'merchant' => ['sometimes', 'nullable', 'string', 'max:100'],
+        ]);
+
+        $columnFilters = collect($validated)
+            ->only(['first_name', 'last_name', 'mobile_number', 'card_number', 'merchant'])
+            ->filter()
+            ->all();
+
+        $page = $this->archive->paginatedList((int) ($validated['page'] ?? 1), $validated['search'] ?? null, $columnFilters);
+
+        return response()->json($page);
     }
 
     public function show(Request $request, int $id): JsonResponse

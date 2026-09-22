@@ -25,15 +25,14 @@ use Illuminate\Validation\ValidationException;
  * populated here either. That makes legacy's own Archive button
  * unreachable through this specific screen's actual UI flow.
  *
- * This ports the INTENDED, working shape instead: a full, per-column-
- * searchable list of customers → a compact customer summary + transaction
- * history (with the date filter and Excel/PDF export legacy's page does
- * support) → a working Archive action wired to the correct customer from
- * the list row, behind a confirmation modal. Legacy's own separate
- * search-form step (submit criteria before any results show) isn't
- * replicated — the full list loads immediately and is filtered per column
- * client-side instead, which is faster when you don't know up front which
- * field to search by.
+ * This ports the INTENDED, working shape instead: a searchable list of
+ * customers → a compact customer summary + transaction history (with the
+ * date filter and Excel/PDF export legacy's page does support) → a working
+ * Archive action wired to the correct customer from the list row, behind a
+ * confirmation modal. Legacy's own separate search-form step (submit
+ * criteria before any results show) isn't replicated — server-side
+ * pagination (300/page) plus a global search box and per-column filters
+ * instead, matching Settlements/KYC Upgrade/Card Verification/Bank Loads.
  *
  * "Archiving" a customer (`archive_customer()`) doesn't delete anything —
  * it frees up their mobile number for reuse by appending `_{id}` to
@@ -71,23 +70,62 @@ class CustomerArchiveService
         ];
     }
 
-    /**
-     * Every non-archived customer, for the DataTable's own per-column
-     * search to filter client-side — legacy's separate search-form step
-     * (name/mobile/card/email/bank-topup, submitted before any results
-     * show) is deliberately not replicated; loading the full list up front
-     * and searching per column is faster for an admin who doesn't know
-     * which field to search by.
-     */
-    public function list(): array
+    private const PER_PAGE = 300;
+
+    private function baseQuery()
     {
-        return Customer::with('ezkardAccount.merchant')
-            ->where('mobile', 'NOT LIKE', '%\\_%')
-            ->orderByDesc('id')
-            ->limit(5000)
-            ->get()
-            ->map(fn (Customer $customer) => $this->presentListRow($customer))
-            ->all();
+        return Customer::where('mobile', 'NOT LIKE', '%\\_%');
+    }
+
+    /** Global "search everything" box — OR's across every visible column, matching every record, not just the loaded page. */
+    private function applySearch($query, string $search): void
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where('first_name', 'like', "%{$search}%")
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhere('mobile', 'like', "%{$search}%")
+                ->orWhereHas('ezkardAccount', fn ($e) => $e->where('card_number', 'like', "%{$search}%"))
+                ->orWhereHas('ezkardAccount.merchant', fn ($m) => $m->where('merchant_name', 'like', "%{$search}%"));
+        });
+    }
+
+    /** Per-column filters — AND'd together, each independently narrowing the result set. */
+    private function applyColumnFilters($query, array $filters): void
+    {
+        if (filled($filters['first_name'] ?? null)) {
+            $query->where('first_name', 'like', '%'.$filters['first_name'].'%');
+        }
+        if (filled($filters['last_name'] ?? null)) {
+            $query->where('last_name', 'like', '%'.$filters['last_name'].'%');
+        }
+        if (filled($filters['mobile_number'] ?? null)) {
+            $query->where('mobile', 'like', '%'.$filters['mobile_number'].'%');
+        }
+        if (filled($filters['card_number'] ?? null)) {
+            $query->whereHas('ezkardAccount', fn ($e) => $e->where('card_number', 'like', '%'.$filters['card_number'].'%'));
+        }
+        if (filled($filters['merchant'] ?? null)) {
+            $query->whereHas('ezkardAccount.merchant', fn ($m) => $m->where('merchant_name', 'like', '%'.$filters['merchant'].'%'));
+        }
+    }
+
+    public function paginatedList(int $page, ?string $search = null, array $columnFilters = []): array
+    {
+        $query = $this->baseQuery()->with('ezkardAccount.merchant');
+        if (filled($search)) {
+            $this->applySearch($query, $search);
+        }
+        $this->applyColumnFilters($query, $columnFilters);
+
+        $paginator = $query->orderByDesc('id')->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
+
+        return [
+            'data' => $paginator->getCollection()->map(fn (Customer $customer) => $this->presentListRow($customer))->all(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
     }
 
     /**
