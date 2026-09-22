@@ -105,7 +105,9 @@ use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
 use App\Http\Controllers\Api\Tools\SendSmsController;
+use App\Http\Controllers\Api\Tools\AlivSettingsController;
 use App\Http\Controllers\Api\Tools\BankAccountController;
+use App\Http\Controllers\Api\Tools\CreditCardFeeController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
 use App\Http\Controllers\Api\Tools\SmsResponseController;
 use App\Http\Controllers\Api\Tools\TransactionFeeController;
@@ -447,6 +449,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('transaction-fees')->group(function () {
         Route::get('/', [TransactionFeeController::class, 'index']);
         Route::put('/{id}', [TransactionFeeController::class, 'update'])->whereNumber('id');
+    });
+
+    Route::prefix('credit-card-fees')->group(function () {
+        Route::get('/', [CreditCardFeeController::class, 'index']);
+        Route::put('/{id}', [CreditCardFeeController::class, 'update'])->whereNumber('id');
+    });
+
+    Route::prefix('aliv-settings')->group(function () {
+        Route::get('/', [AlivSettingsController::class, 'show']);
+        Route::put('/', [AlivSettingsController::class, 'update']);
     });
 
     Route::prefix('transaction-limits')->group(function () {

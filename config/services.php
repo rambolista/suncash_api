@@ -86,6 +86,23 @@ return [
         'language' => env('WHATSAPP_TEMPLATE_LANGUAGE'),
     ],
 
+    // Tools > Aliv Settings — the Aliv mobile-topup reseller balance API
+    // (topupservice/thirdparty/*), unrelated to the `aliv_sms` gateway
+    // above despite the shared "Aliv" name. Legacy hardcodes real
+    // credentials directly in its source; not carried over here — only the
+    // non-secret reseller/endpoint defaults are, the actual password/api
+    // key must be supplied per environment. Disabled by default: the
+    // Replenish Amount/Notification Email settings still load and save
+    // fine either way, only the live "Aliv Balance" figure needs this.
+    'aliv_topup' => [
+        'enabled' => env('ALIV_TOPUP_ENABLED', false),
+        'api_url' => env('ALIV_TOPUP_API_URL', 'https://alivsales.bealiv.com:8091/'),
+        'reseller_id' => env('ALIV_TOPUP_RESELLER_ID', 'SUCA01'),
+        'user_id' => env('ALIV_TOPUP_USER_ID', 'Webuser'),
+        'password' => env('ALIV_TOPUP_PASSWORD'),
+        'api_key' => env('ALIV_TOPUP_API_KEY'),
+    ],
+
     // Tools > Customer Management > View ComplyAdvantage Profile. Legacy's
     // own credentials (COMPLY_API_URL/USERNAME/REALM/PASSWORD) live outside
     // its checked-in source (server-level config not present in this repo),
