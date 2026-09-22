@@ -30,7 +30,27 @@ class CardVerificationController extends Controller
             return $response;
         }
 
-        return response()->json($this->cards->list() + [
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string', 'in:pending,approved,rejected,blacklisted'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'created_at' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'cardholder_name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'mobile' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'card_last_four_digits' => ['sometimes', 'nullable', 'string', 'max:10'],
+            'card_type' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'rejected_reason' => ['sometimes', 'nullable', 'string', 'max:100'],
+        ]);
+
+        $columnFilters = collect($validated)
+            ->only(['created_at', 'cardholder_name', 'mobile', 'card_last_four_digits', 'card_type', 'rejected_reason'])
+            ->filter()
+            ->all();
+
+        $page = $this->cards->paginatedList($validated['status'] ?? 'pending', (int) ($validated['page'] ?? 1), $validated['search'] ?? null, $columnFilters);
+
+        return response()->json($page + [
+            'counts' => $this->cards->counts(),
             'reject_reasons' => CardVerificationService::REJECT_REASONS,
             'blacklist_reasons' => CardVerificationService::BLACKLIST_REASONS,
         ]);

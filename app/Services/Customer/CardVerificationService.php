@@ -107,7 +107,11 @@ class CardVerificationService
         ];
     }
 
-    private function rowsForStatus(string $status)
+    private const STATUSES = ['pending', 'approved', 'rejected', 'blacklisted'];
+
+    private const PER_PAGE = 300;
+
+    private function baseQuery(string $status)
     {
         $query = CustomerCreditCard::with(['customer', 'updatedByUser'])
             ->whereHas('customer');
@@ -120,19 +124,71 @@ class CardVerificationService
             'blacklisted' => $query->where('is_blacklisted', 1),
         };
 
-        return $query->orderByDesc('timestamp')->get();
+        return $query;
     }
 
-    public function list(): array
+    /** Tab badge counts — same filters as the list query, just COUNT instead of SELECT. */
+    public function counts(): array
     {
-        $result = [];
-        foreach (['pending', 'approved', 'rejected', 'blacklisted'] as $status) {
-            $result[$status] = $this->rowsForStatus($status)
-                ->map(fn (CustomerCreditCard $card) => $this->present($card, $status))
-                ->all();
+        return array_combine(self::STATUSES, array_map(fn ($status) => $this->baseQuery($status)->count(), self::STATUSES));
+    }
+
+    /** Global "search everything" box — OR's across every visible column, matching every record, not just the loaded page. */
+    private function applySearch($query, string $search): void
+    {
+        $query->where(function ($q) use ($search) {
+            $q->where('cardholder_name', 'like', "%{$search}%")
+                ->orWhere('card_last_four_digits', 'like', "%{$search}%")
+                ->orWhere('card_type', 'like', "%{$search}%")
+                ->orWhere('rejected_reason', 'like', "%{$search}%")
+                ->orWhereHas('customer', fn ($c) => $c->where('mobile', 'like', "%{$search}%"));
+        });
+    }
+
+    /** Per-column filters — AND'd together, each independently narrowing the result set. */
+    private function applyColumnFilters($query, array $filters): void
+    {
+        if (filled($filters['created_at'] ?? null)) {
+            $query->where('timestamp', 'like', '%'.$filters['created_at'].'%');
+        }
+        if (filled($filters['cardholder_name'] ?? null)) {
+            $query->where('cardholder_name', 'like', '%'.$filters['cardholder_name'].'%');
+        }
+        if (filled($filters['mobile'] ?? null)) {
+            $query->whereHas('customer', fn ($c) => $c->where('mobile', 'like', '%'.$filters['mobile'].'%'));
+        }
+        if (filled($filters['card_last_four_digits'] ?? null)) {
+            $query->where('card_last_four_digits', 'like', '%'.$filters['card_last_four_digits'].'%');
+        }
+        if (filled($filters['card_type'] ?? null)) {
+            $query->where('card_type', 'like', '%'.$filters['card_type'].'%');
+        }
+        if (filled($filters['rejected_reason'] ?? null)) {
+            $query->where('rejected_reason', 'like', '%'.$filters['rejected_reason'].'%');
+        }
+    }
+
+    public function paginatedList(string $status, int $page, ?string $search = null, array $columnFilters = []): array
+    {
+        if (! in_array($status, self::STATUSES, true)) {
+            $status = 'pending';
         }
 
-        return $result;
+        $query = $this->baseQuery($status);
+        if (filled($search)) {
+            $this->applySearch($query, $search);
+        }
+        $this->applyColumnFilters($query, $columnFilters);
+
+        $paginator = $query->orderByDesc('timestamp')->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
+
+        return [
+            'data' => $paginator->getCollection()->map(fn (CustomerCreditCard $card) => $this->present($card, $status))->all(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
     }
 
     /**
