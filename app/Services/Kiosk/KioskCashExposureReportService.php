@@ -49,19 +49,19 @@ class KioskCashExposureReportService
         return Island::orderBy('name')->get(['id', 'code', 'name'])->all();
     }
 
-    /** Legacy `get_kiosk_adjustment_transactions($today, $today, $terminalId, "deposit", "Recycled to Kiosk")` — cash physically recycled back into this terminal today. */
-    private function cashRecycler(int $terminalId): float
+    /** Legacy `get_kiosk_adjustment_transactions($today, $today, $terminalId, "deposit", "Recycled to Kiosk")` — cash physically recycled back into each terminal today, batched across all terminals in one query instead of one per terminal. */
+    private function cashRecyclerTotals(): array
     {
         $today = now()->toDateString();
 
-        $total = DB::connection('mysuncash')->table('kiosk_terminal_transactions')
-            ->where('terminal_id', $terminalId)
+        return DB::connection('mysuncash')->table('kiosk_terminal_transactions')
             ->where('trans_type', 'deposit')
             ->where('deposit_location', 'Recycled to Kiosk')
             ->whereBetween('create_date', ["{$today} 00:00:00", "{$today} 23:59:59"])
-            ->sum('amount');
-
-        return (float) $total;
+            ->groupBy('terminal_id')
+            ->selectRaw('terminal_id, SUM(amount) as total')
+            ->pluck('total', 'terminal_id')
+            ->all();
     }
 
     public function list(?int $terminalId = null, ?int $islandId = null): array
@@ -84,6 +84,8 @@ class KioskCashExposureReportService
             'kt.cash_total_reserve', 'kt.cash_total_reject', 'kt.terminal_type',
         ]);
 
+        $recyclerTotals = $this->cashRecyclerTotals();
+
         $rows = [];
         $totalRecycler = 0.0;
         foreach ($terminals as $terminal) {
@@ -91,7 +93,7 @@ class KioskCashExposureReportService
             $dispenser = (float) $terminal->terminal_dispenser_balance;
             $reserve = (float) $terminal->cash_total_reserve;
             $reject = (float) $terminal->cash_total_reject;
-            $recycler = $this->cashRecycler((int) $terminal->terminal_id);
+            $recycler = (float) ($recyclerTotals[$terminal->terminal_id] ?? 0);
             $totalRecycler += $recycler;
 
             $flagged = ($acceptor >= (float) $terminal->acceptor_high_alert && in_array($terminal->terminal_type, ['kiosk', 'atm'], true))

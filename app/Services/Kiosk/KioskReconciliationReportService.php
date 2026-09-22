@@ -4,6 +4,7 @@ namespace App\Services\Kiosk;
 
 use App\Models\Mysuncash\Island;
 use App\Models\Mysuncash\KioskTerminal;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,6 +41,13 @@ use Illuminate\Support\Facades\DB;
  */
 class KioskReconciliationReportService
 {
+    /** Same inclusive [from, to] calendar-day range as `DATE(col) BETWEEN ? AND ?`, but without wrapping the column
+     * in a function — that defeats any index on it (forces a full scan on every row). */
+    private function dateBounds(string $from, string $to): array
+    {
+        return [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->addDay()->startOfDay()];
+    }
+
     public function listTerminals(): array
     {
         return KioskTerminal::orderBy('name')->get(['id', 'name'])->all();
@@ -113,12 +121,15 @@ class KioskReconciliationReportService
      */
     private function runningBalance(string $dateFrom, string $dateTo, int $terminalId): float
     {
+        [$start, $end] = $this->dateBounds(
+            Carbon::parse($dateFrom)->subDay()->toDateString(),
+            Carbon::parse($dateTo)->subDay()->toDateString(),
+        );
+
         $rows = DB::connection('mysuncash')->table('kiosk_cash_meters_trx')
             ->where('terminal_id', $terminalId)
-            ->whereBetween(DB::raw('DATE(timestamp)'), [
-                DB::raw("DATE_SUB('{$dateFrom}', INTERVAL 1 DAY)"),
-                DB::raw("DATE_SUB('{$dateTo}', INTERVAL 1 DAY)"),
-            ])
+            ->where('timestamp', '>=', $start)
+            ->where('timestamp', '<', $end)
             ->groupBy(DB::raw('DATE(timestamp)'))
             ->get(['type', 'data', 'dispense_cassette']);
 
@@ -140,10 +151,13 @@ class KioskReconciliationReportService
     /** Legacy `get_kiosk_total_cash_loaded_or_deposit()` — latest meter row of the given hardware `type` ('in'/'out') within the range. */
     private function cashInOrOut(string $dateFrom, string $dateTo, int $terminalId, string $type): float
     {
+        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
+
         $row = DB::connection('mysuncash')->table('kiosk_cash_meters_trx')
             ->where('type', $type)
             ->where('terminal_id', $terminalId)
-            ->whereBetween(DB::raw('DATE(timestamp)'), [$dateFrom, $dateTo])
+            ->where('timestamp', '>=', $start)
+            ->where('timestamp', '<', $end)
             ->orderByDesc('id')
             ->first(['data', 'dispense_cassette']);
 
@@ -173,6 +187,7 @@ class KioskReconciliationReportService
     {
         $categorySql = $category === 'REPLENISH' ? 'kmu.category = ?' : 'kmu.category LIKE ?';
         $categoryParam = $category === 'REPLENISH' ? $category : "%{$category}%";
+        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
 
         $row = DB::connection('mysuncash')->selectOne(
             "SELECT MAX(total_cash_in) AS total_cash_in, MAX(total_cash_in_count) AS total_cash_in_count, type
@@ -181,11 +196,11 @@ class KioskReconciliationReportService
                 FROM kiosk_meters_user kmu
                 WHERE {$categorySql}
                     AND kmu.terminal_id = ?
-                    AND DATE(kmu.timestamp) BETWEEN ? AND ?
+                    AND kmu.timestamp >= ? AND kmu.timestamp < ?
                 GROUP BY DATE(kmu.timestamp)
             ) AS terminal_totals
             GROUP BY terminal_id",
-            [$categoryParam, $terminalId, $dateFrom, $dateTo]
+            [$categoryParam, $terminalId, $start, $end]
         );
 
         if (! $row) {
@@ -200,10 +215,13 @@ class KioskReconciliationReportService
     /** Legacy `get_kiosk_total_fee_vat()`. */
     private function feeVat(string $dateFrom, string $dateTo, int $terminalId): array
     {
+        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
+
         $row = DB::connection('mysuncash')->table('webpos_transaction_kiosk as wtk')
             ->where('wtk.status', '0')
             ->where('wtk.terminal_id', $terminalId)
-            ->whereBetween(DB::raw('DATE(wtk.transaction_date)'), [$dateFrom, $dateTo])
+            ->where('wtk.transaction_date', '>=', $start)
+            ->where('wtk.transaction_date', '<', $end)
             ->selectRaw('IFNULL(SUM(wtk.fee_amount), 0) as total_fee, IFNULL(SUM(wtk.vat_amount), 0) as total_vat')
             ->first();
 
@@ -224,11 +242,14 @@ class KioskReconciliationReportService
 
     public function list(string $dateFrom, string $dateTo, ?int $terminalId = null, ?int $islandId = null): array
     {
+        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
+
         $query = DB::connection('mysuncash')->table('webpos_transaction_kiosk as wtk')
             ->join('kiosk_terminal as kt', 'kt.id', '=', 'wtk.terminal_id')
             ->leftJoin('island as i', 'i.id', '=', 'kt.island')
             ->where('wtk.status', '0')
-            ->whereBetween(DB::raw('DATE(wtk.transaction_date)'), [$dateFrom, $dateTo]);
+            ->where('wtk.transaction_date', '>=', $start)
+            ->where('wtk.transaction_date', '<', $end);
 
         if ($terminalId) {
             $query->where('wtk.terminal_id', $terminalId);
