@@ -2,6 +2,7 @@
 
 namespace App\Services\Promotions;
 
+use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -36,8 +37,16 @@ class PromoTicketReportService
         ['key' => 'redeemed_date', 'label' => 'Redeemed'],
     ];
 
+    /** Plain range instead of wrapping the indexed column in DATE(...), which defeats any index on it. */
+    private function dateBounds(string $dateFrom, string $dateTo): array
+    {
+        return [Carbon::parse($dateFrom)->startOfDay(), Carbon::parse($dateTo)->addDay()->startOfDay()];
+    }
+
     private function baseQuery(string $dateFrom, string $dateTo, ?string $promoType, ?string $status): Builder
     {
+        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
+
         $query = DB::connection('mysuncash')
             ->table('promo_entries as pe')
             ->join('customers as c', function ($join) {
@@ -48,7 +57,8 @@ class PromoTicketReportService
             })
             ->leftJoin('island as i', 'i.id', '=', 'c.island')
             ->leftJoin('promo_items as pit', 'pit.id', '=', 'pe.item_id')
-            ->whereBetween(DB::raw('DATE(pe.create_date)'), [$dateFrom, $dateTo])
+            ->where('pe.create_date', '>=', $start)
+            ->where('pe.create_date', '<', $end)
             ->selectRaw(
                 "pe.id, pe.create_date,
                  CONCAT(c.first_name, ' ', c.last_name) as customer_name,

@@ -108,6 +108,8 @@ use App\Http\Controllers\Api\Tools\SendSmsController;
 use App\Http\Controllers\Api\Tools\AlivSettingsController;
 use App\Http\Controllers\Api\Tools\BankAccountController;
 use App\Http\Controllers\Api\Tools\BtcSettingsController;
+use App\Http\Controllers\Api\Tools\ComplianceController;
+use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
 use App\Http\Controllers\Api\Tools\PrepaySettingsController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
@@ -471,6 +473,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('prepaynation-settings')->group(function () {
         Route::get('/', [PrepaySettingsController::class, 'show']);
         Route::put('/', [PrepaySettingsController::class, 'update']);
+    });
+
+    Route::prefix('credit-card-approval')->group(function () {
+        Route::get('/', [CreditCardApprovalController::class, 'index']);
+        Route::put('/{id}/approve', [CreditCardApprovalController::class, 'approve'])->whereNumber('id');
+        Route::put('/{id}/reject', [CreditCardApprovalController::class, 'reject'])->whereNumber('id');
+    });
+
+    Route::prefix('compliance')->group(function () {
+        Route::get('/', [ComplianceController::class, 'index']);
+        Route::put('/{id}', [ComplianceController::class, 'update'])->whereNumber('id');
+        Route::delete('/{id}', [ComplianceController::class, 'destroy'])->whereNumber('id');
+        Route::post('/import', [ComplianceController::class, 'import']);
     });
 
     Route::prefix('transaction-limits')->group(function () {
