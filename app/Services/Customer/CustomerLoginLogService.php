@@ -3,6 +3,7 @@
 namespace App\Services\Customer;
 
 use App\Models\Mysuncash\CustomerLoginLog;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -45,18 +46,27 @@ class CustomerLoginLogService
         ];
     }
 
+    /** Same inclusive [from, to] calendar-day range as `DATE(timestamp) BETWEEN ? AND ?`, but without wrapping the
+     * column in a function — that defeats any index on `timestamp` (forces a full table scan on every row). */
+    private function applyDateRange($query, string $from, string $to): void
+    {
+        $query->where('timestamp', '>=', Carbon::parse($from)->startOfDay())
+            ->where('timestamp', '<', Carbon::parse($to)->addDay()->startOfDay());
+    }
+
     /**
      * Legacy's SUCCESS query excludes a handful of hardcoded test-device
      * UUIDs from this report (kept out of the "real" success log).
      */
     public function successLogs(string $from, string $to): array
     {
-        return CustomerLoginLog::with('customer')
+        $query = CustomerLoginLog::with('customer')
             ->whereHas('customer')
             ->whereNotIn('uuid', self::TEST_UUIDS)
-            ->where('status', 'SUCCESS')
-            ->whereBetween(DB::raw('DATE(timestamp)'), [$from, $to])
-            ->orderByDesc('timestamp')
+            ->where('status', 'SUCCESS');
+        $this->applyDateRange($query, $from, $to);
+
+        return $query->orderByDesc('timestamp')
             ->get()
             ->map(fn (CustomerLoginLog $log) => $this->present($log))
             ->all();
@@ -64,11 +74,12 @@ class CustomerLoginLogService
 
     public function failedLogs(string $from, string $to): array
     {
-        return CustomerLoginLog::with('customer')
+        $query = CustomerLoginLog::with('customer')
             ->whereHas('customer')
-            ->where('status', 'FAILED')
-            ->whereBetween(DB::raw('DATE(timestamp)'), [$from, $to])
-            ->orderByDesc('timestamp')
+            ->where('status', 'FAILED');
+        $this->applyDateRange($query, $from, $to);
+
+        return $query->orderByDesc('timestamp')
             ->get()
             ->map(fn (CustomerLoginLog $log) => $this->present($log))
             ->all();
