@@ -107,7 +107,9 @@ use App\Http\Controllers\Api\Tools\ForexRateController;
 use App\Http\Controllers\Api\Tools\SendSmsController;
 use App\Http\Controllers\Api\Tools\AlivSettingsController;
 use App\Http\Controllers\Api\Tools\BankAccountController;
+use App\Http\Controllers\Api\Tools\BtcSettingsController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
+use App\Http\Controllers\Api\Tools\PrepaySettingsController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
 use App\Http\Controllers\Api\Tools\SmsResponseController;
 use App\Http\Controllers\Api\Tools\TransactionFeeController;
@@ -459,6 +461,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('aliv-settings')->group(function () {
         Route::get('/', [AlivSettingsController::class, 'show']);
         Route::put('/', [AlivSettingsController::class, 'update']);
+    });
+
+    Route::prefix('btc-settings')->group(function () {
+        Route::get('/', [BtcSettingsController::class, 'show']);
+        Route::put('/', [BtcSettingsController::class, 'update']);
+    });
+
+    Route::prefix('prepaynation-settings')->group(function () {
+        Route::get('/', [PrepaySettingsController::class, 'show']);
+        Route::put('/', [PrepaySettingsController::class, 'update']);
     });
 
     Route::prefix('transaction-limits')->group(function () {

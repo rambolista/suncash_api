@@ -136,6 +136,27 @@ return [
         'url' => env('FCM_URL'),
     ],
 
+    // Tools > BTC Settings — Emida's SOAP terminal-balance reseller API
+    // (GetTerminalBalance). Legacy hardcodes real WSDL/servlet URLs and two
+    // credential sets (primary "suncash" channel + a separate "customer_app"
+    // channel) directly in source; not carried over here — only the WSDL
+    // endpoints default, the actual site IDs/usernames/passwords must be
+    // supplied per environment. Disabled by default: the Replenish
+    // Amount/Notification Email settings still load and save fine either
+    // way, only the live "BTC Balance" figure needs this (and the `soap`
+    // PHP extension).
+    'emida' => [
+        'enabled' => env('EMIDA_ENABLED', false),
+        'wsdl' => env('EMIDA_WSDL', 'https://ws.emida.cwc.com:4543/services/rpcrouter?wsdl'),
+        'servlet' => env('EMIDA_SERVLET', 'https://ws.emida.cwc.com:4543/soap/services/rpcrouter'),
+        'site_id' => env('EMIDA_SITE_ID'),
+        'username' => env('EMIDA_USERNAME'),
+        'password' => env('EMIDA_PASSWORD'),
+        'site_id_app' => env('EMIDA_SITE_ID_APP'),
+        'username_app' => env('EMIDA_USERNAME_APP'),
+        'password_app' => env('EMIDA_PASSWORD_APP'),
+    ],
+
     // Kiosk > Voucher Pin Tool — decrypts merchant_vouchers/universal_vouchers.pin
     // (legacy VOUCHER_CRYPT_KEY / VOUCHER_IV constants, AES-128-CBC).
     'voucher' => [
