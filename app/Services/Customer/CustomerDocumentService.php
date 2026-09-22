@@ -3,6 +3,7 @@
 namespace App\Services\Customer;
 
 use App\Models\Mysuncash\WuUploadedRequest;
+use App\Services\Concerns\ResolvesLegacyS3Images;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -28,6 +29,8 @@ use Illuminate\Validation\ValidationException;
  */
 class CustomerDocumentService
 {
+    use ResolvesLegacyS3Images;
+
     private const DOCUMENT_FIELDS = [
         'upload_job_letter' => 'Job Letter',
         'upload_proof_residence' => 'Proof of Residence',
@@ -40,19 +43,6 @@ class CustomerDocumentService
         'upload_salary_slip' => 'Salary Slip',
         'upload_proof_of_billing' => 'Proof of Billing',
     ];
-
-    /** Same base64-vs-URL resolution as KYC Upgrade's `resolveImage()` — legacy's `s3_model->get_img()`. */
-    private function resolveImage(?string $value): ?string
-    {
-        if (! filled($value)) {
-            return null;
-        }
-        if (str_starts_with($value, 'http') || str_starts_with($value, 'data:image/')) {
-            return $value;
-        }
-
-        return 'data:image/jpeg;base64,'.$value;
-    }
 
     private function present(WuUploadedRequest $request): array
     {

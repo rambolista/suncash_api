@@ -8,6 +8,7 @@ use App\Models\Mysuncash\SubAccountSetting;
 use App\Models\Mysuncash\TransactionLimit;
 use App\Models\Mysuncash\WebLog;
 use App\Models\User;
+use App\Services\Concerns\ResolvesLegacyS3Images;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -34,6 +35,8 @@ use Illuminate\Validation\ValidationException;
  */
 class KycUpgradeService
 {
+    use ResolvesLegacyS3Images;
+
     private const ID_TYPES = [
         'gid' => 'Government ID',
         'dl' => "Driver's License",
@@ -77,19 +80,6 @@ class KycUpgradeService
         ['key' => 'reason_reject', 'label' => 'Reason'],
         ['key' => 'updated_at', 'label' => 'Date Rejected'],
     ];
-
-    /** Same base64-vs-URL resolution the legacy view's JS applies to every image field. */
-    private function resolveImage(?string $value): ?string
-    {
-        if (! filled($value)) {
-            return null;
-        }
-        if (str_starts_with($value, 'http') || str_starts_with($value, 'data:image/')) {
-            return $value;
-        }
-
-        return 'data:image/jpeg;base64,'.$value;
-    }
 
     private function present(Customer $customer): array
     {

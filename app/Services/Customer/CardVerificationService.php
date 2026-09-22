@@ -8,6 +8,7 @@ use App\Models\Mysuncash\CustomerCreditCard;
 use App\Models\Mysuncash\CustomerOtherFile;
 use App\Models\Mysuncash\WebLog;
 use App\Models\User;
+use App\Services\Concerns\ResolvesLegacyS3Images;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -40,6 +41,8 @@ use Illuminate\Validation\ValidationException;
  */
 class CardVerificationService
 {
+    use ResolvesLegacyS3Images;
+
     public const REJECT_REASONS = [
         'ID Blurry or not readable.',
         'Government identification required.',
@@ -62,18 +65,6 @@ class CardVerificationService
     public const BLACKLIST_REASONS = [
         'Invalid or Suspicious Card',
     ];
-
-    private function resolveImage(?string $value): ?string
-    {
-        if (! filled($value)) {
-            return null;
-        }
-        if (str_starts_with($value, 'http') || str_starts_with($value, 'data:image/')) {
-            return $value;
-        }
-
-        return 'data:image/jpeg;base64,'.$value;
-    }
 
     private function formatMobile(?string $mobile): ?string
     {

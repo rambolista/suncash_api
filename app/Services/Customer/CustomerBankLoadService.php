@@ -13,6 +13,7 @@ use App\Models\Mysuncash\EzkardTransaction;
 use App\Models\Mysuncash\SystemSetting;
 use App\Models\Mysuncash\UserAccount;
 use App\Models\User;
+use App\Services\Concerns\ResolvesLegacyS3Images;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -55,6 +56,8 @@ use Illuminate\Validation\ValidationException;
  */
 class CustomerBankLoadService
 {
+    use ResolvesLegacyS3Images;
+
     private const STATUSES = ['pending' => CustomerSettlement::STATUS_PENDING, 'approved' => CustomerSettlement::STATUS_PROCESSED, 'rejected' => CustomerSettlement::STATUS_REJECTED];
 
     private const PAN_KEK = 'cfbe176207b80774e8911c10893f5a0f';
@@ -87,18 +90,6 @@ class CustomerBankLoadService
         }
 
         return $this->hideItDecrypt($this->panKey(), $encrypted, sha1(md5($ivSeed))) ?: null;
-    }
-
-    private function resolveImage(?string $value): ?string
-    {
-        if (! filled($value)) {
-            return null;
-        }
-        if (str_starts_with($value, 'http') || str_starts_with($value, 'data:image/')) {
-            return $value;
-        }
-
-        return 'data:image/jpeg;base64,'.$value;
     }
 
     /**

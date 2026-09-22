@@ -70,6 +70,24 @@ return [
             'report' => false,
         ],
 
+        // Same bucket/credentials as "s3", but no root prefix — legacy's TPP
+        // `get_image` endpoint (S3api::get_image_get()) keyed its objects
+        // straight off `s3_path_type.path` (e.g. "images/customer/57052/x.jpg"),
+        // never under AWS_CUSTOMER_FILES_PATH. Used to re-sign those legacy
+        // URLs directly against S3 instead of going through TPP.
+        's3_documents' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*
