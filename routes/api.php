@@ -112,6 +112,7 @@ use App\Http\Controllers\Api\Tools\ComplianceController;
 use App\Http\Controllers\Api\Tools\CardLogsController;
 use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
+use App\Http\Controllers\Api\Tools\FeatureReleaseController;
 use App\Http\Controllers\Api\Tools\CustomerBenefitsDistributionController;
 use App\Http\Controllers\Api\Tools\PrepaySettingsController;
 use App\Http\Controllers\Api\Tools\VoucherBatchGenerationController;
@@ -515,6 +516,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('card-logs')->group(function () {
         Route::get('/', [CardLogsController::class, 'index']);
         Route::get('/export', [CardLogsController::class, 'export']);
+    });
+
+    Route::prefix('feature-release')->group(function () {
+        Route::get('/', [FeatureReleaseController::class, 'index']);
+        Route::get('/islands', [FeatureReleaseController::class, 'islands']);
+        Route::post('/', [FeatureReleaseController::class, 'store']);
+        Route::put('/{id}', [FeatureReleaseController::class, 'update'])->whereNumber('id');
     });
 
     Route::prefix('transaction-limits')->group(function () {
