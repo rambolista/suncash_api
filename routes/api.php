@@ -112,6 +112,7 @@ use App\Http\Controllers\Api\Tools\ComplianceController;
 use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
 use App\Http\Controllers\Api\Tools\PrepaySettingsController;
+use App\Http\Controllers\Api\Tools\VoucherBatchGenerationController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
 use App\Http\Controllers\Api\Tools\SmsResponseController;
 use App\Http\Controllers\Api\Tools\TransactionFeeController;
@@ -486,6 +487,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [ComplianceController::class, 'update'])->whereNumber('id');
         Route::delete('/{id}', [ComplianceController::class, 'destroy'])->whereNumber('id');
         Route::post('/import', [ComplianceController::class, 'import']);
+    });
+
+    Route::prefix('voucher-batch-generation')->group(function () {
+        Route::get('/', [VoucherBatchGenerationController::class, 'index']);
+        Route::get('/template', [VoucherBatchGenerationController::class, 'template']);
+        Route::get('/export', [VoucherBatchGenerationController::class, 'export']);
+        Route::get('/{batchId}/rows', [VoucherBatchGenerationController::class, 'rows'])->whereNumber('batchId');
+        Route::post('/import', [VoucherBatchGenerationController::class, 'import']);
+        Route::post('/{batchId}/process', [VoucherBatchGenerationController::class, 'process'])->whereNumber('batchId');
+        Route::post('/{batchId}/resend', [VoucherBatchGenerationController::class, 'resend'])->whereNumber('batchId');
+        Route::post('/rows/{rowId}/skip', [VoucherBatchGenerationController::class, 'skip'])->whereNumber('rowId');
     });
 
     Route::prefix('transaction-limits')->group(function () {
