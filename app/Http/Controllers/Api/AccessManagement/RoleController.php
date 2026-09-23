@@ -125,7 +125,7 @@ class RoleController extends Controller
 
         $tabPermissions = $role->menuTabPermissions()->get()->keyBy('id');
 
-        $menus = Menu::with('tabs')->orderBy('sort_order')->orderBy('id')->get()->map(function ($menu) use ($existing, $tabPermissions) {
+        $menus = Menu::with('tabs')->where('is_hidden', false)->orderBy('sort_order')->orderBy('id')->get()->map(function ($menu) use ($existing, $tabPermissions) {
             $pivot = $existing->get($menu->id)?->pivot;
 
             $payload = [

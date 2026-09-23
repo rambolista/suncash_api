@@ -28,7 +28,7 @@ class MenuController extends Controller
                 return response()->json(['message' => 'Forbidden.'], 403);
             }
 
-            return response()->json($allMenus);
+            return response()->json($allMenus->where('is_hidden', false)->values());
         }
 
         $visibleIds = collect($this->getAccessibleMenuIds($request->user()))

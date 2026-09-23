@@ -40,6 +40,7 @@ class Menu extends Model
         'is_active'  => 'boolean',
         'is_disabled' => 'boolean',
         'is_special' => 'boolean',
+        'is_hidden' => 'boolean',
         'sort_order' => 'integer',
         'parent_id'  => 'integer',
         'supports_view' => 'boolean',
