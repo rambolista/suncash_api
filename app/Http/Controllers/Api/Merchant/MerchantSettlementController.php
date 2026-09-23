@@ -41,7 +41,32 @@ class MerchantSettlementController extends Controller
             return $response;
         }
 
-        return response()->json($this->settlements->list());
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string', 'in:pending,approved,rejected'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'transaction_id' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'merchant' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'type' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'withdrawal_type' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'amount' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'created_date' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'updated_date' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'updated_by' => ['sometimes', 'nullable', 'string', 'max:50'],
+        ]);
+
+        $columnFilters = collect($validated)
+            ->only(['transaction_id', 'merchant', 'type', 'withdrawal_type', 'amount', 'created_date', 'updated_date', 'updated_by'])
+            ->filter()
+            ->all();
+
+        try {
+            $page = $this->settlements->paginatedList($validated['status'] ?? 'pending', (int) ($validated['page'] ?? 1), $validated['search'] ?? null, $columnFilters);
+        } catch (ValidationException $exception) {
+            return $this->invalid($exception);
+        }
+
+        return response()->json($page + ['counts' => $this->settlements->counts()]);
     }
 
     public function export(Request $request): JsonResponse|StreamedResponse|Response

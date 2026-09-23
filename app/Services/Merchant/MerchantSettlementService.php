@@ -62,61 +62,159 @@ class MerchantSettlementService
         ['key' => 'status_label', 'label' => 'Status'],
     ];
 
+    private const PER_PAGE = 300;
+
     private function withdrawalTypeLabel(?string $withdrawalType): string
     {
         return $withdrawalType === 'WIF' ? 'Express (1 Day)' : 'Standard (2-3 Days)';
     }
 
-    private function dueDate(ManualSettlement $settlement): ?string
+    /** Both possible due-day settings, fetched once instead of per row (every pending row was re-querying this). */
+    private function dueDayCache(): array
+    {
+        return [
+            'express' => (int) (SystemSetting::where('set_code', 'customer_withdrawal_due_express')->value('set_value') ?? 1),
+            'standard' => (int) (SystemSetting::where('set_code', 'customer_withdrawal_due_standard')->value('set_value') ?? 3),
+        ];
+    }
+
+    private function dueDate(ManualSettlement $settlement, array $dueDays): ?string
     {
         if ($settlement->status !== ManualSettlement::STATUS_PENDING) {
             return null;
         }
 
-        $days = (int) (SystemSetting::where('set_code', $settlement->withdrawal_type === 'WIF'
-            ? 'customer_withdrawal_due_express'
-            : 'customer_withdrawal_due_standard')->value('set_value') ?? ($settlement->withdrawal_type === 'WIF' ? 1 : 3));
-
+        $days = $settlement->withdrawal_type === 'WIF' ? $dueDays['express'] : $dueDays['standard'];
         $due = Carbon::parse($settlement->created_date)->addDays($days);
 
         return $due->isPast() ? 'OverDue' : $due->toDateTimeString();
     }
 
-    private function mapListRow(ManualSettlement $settlement): array
+    private function mapListRow(ManualSettlement $settlement, array $merchantCache = [], array $userAccountCache = [], ?array $dueDays = null): array
     {
+        $merchant = $merchantCache[$settlement->client_record_id] ?? $settlement->merchant;
+
         return [
             'id' => $settlement->id,
             'transaction_id' => sprintf('%08d', $settlement->id),
             'client_record_id' => $settlement->client_record_id,
-            'suntag_shortcode' => $settlement->merchant?->suntag_shortcode,
-            'dba_name' => $settlement->merchant?->dba_name,
+            'suntag_shortcode' => $merchant?->suntag_shortcode,
+            'dba_name' => $merchant?->dba_name,
             'type' => $settlement->type,
             'withdrawal_type' => $settlement->withdrawal_type,
             'w_type' => $this->withdrawalTypeLabel($settlement->withdrawal_type),
             'amount' => (float) $settlement->amount,
             'fee' => (float) $settlement->fee,
             'first_withdrawal' => $settlement->first_withdrawal,
-            'due_date' => $this->dueDate($settlement),
+            'due_date' => $this->dueDate($settlement, $dueDays ?? $this->dueDayCache()),
             'status' => $settlement->status,
             'created_date' => $settlement->created_date,
             'updated_date' => $settlement->updated_date,
-            'updated_by_user' => $settlement->updated_by ? UserAccount::where('id', $settlement->updated_by)->value('user_name') : null,
+            'updated_by_user' => $settlement->updated_by ? ($userAccountCache[$settlement->updated_by] ?? UserAccount::where('id', $settlement->updated_by)->value('user_name')) : null,
         ];
     }
 
-    public function list(): array
+    /** Tab badge counts — 3 cheap indexed COUNT queries, independent of whichever tab's page is being loaded. */
+    public function counts(): array
     {
-        $result = [];
+        $counts = [];
         foreach (self::STATUSES as $key => $status) {
-            $result[$key] = ManualSettlement::with('merchant')
-                ->where('status', $status)
-                ->orderBy('id')
-                ->get()
-                ->map(fn (ManualSettlement $s) => $this->mapListRow($s))
-                ->all();
+            $counts[$key] = ManualSettlement::where('status', $status)->count();
         }
 
-        return $result;
+        return $counts;
+    }
+
+    private function merchantNameSubquery(string $name): \Closure
+    {
+        return fn ($sub) => $sub->select('id')->from('clients')
+            ->where('dba_name', 'like', "%{$name}%")
+            ->orWhere('suntag_shortcode', 'like', "%{$name}%");
+    }
+
+    /** The single "search everything" box — transaction id (exact, once digits-only), type/withdrawal type (substring), or the merchant's shortcode/dba name. */
+    private function applySearch(\Illuminate\Database\Eloquent\Builder $query, string $search): void
+    {
+        $digits = preg_replace('/\D/', '', $search);
+
+        $query->where(function ($q) use ($search, $digits) {
+            if ($digits !== '') {
+                $q->orWhere('id', (int) $digits);
+            }
+            $q->orWhere('type', 'like', "%{$search}%")
+                ->orWhere('withdrawal_type', 'like', "%{$search}%")
+                ->orWhereIn('client_record_id', $this->merchantNameSubquery($search));
+        });
+    }
+
+    /** Per-column filters (Created, Transaction ID, Merchant, Type, Withdrawal Type, Amount, Fee, and — Processed/Rejected tabs — Updated By). */
+    private function applyColumnFilters(\Illuminate\Database\Eloquent\Builder $query, array $filters): void
+    {
+        if (filled($filters['transaction_id'] ?? null)) {
+            $digits = preg_replace('/\D/', '', $filters['transaction_id']);
+            $query->where('id', $digits !== '' ? (int) $digits : -1);
+        }
+        if (filled($filters['merchant'] ?? null)) {
+            $query->whereIn('client_record_id', $this->merchantNameSubquery($filters['merchant']));
+        }
+        if (filled($filters['type'] ?? null)) {
+            $query->where('type', 'like', '%'.$filters['type'].'%');
+        }
+        if (filled($filters['withdrawal_type'] ?? null)) {
+            $query->where('withdrawal_type', 'like', '%'.$filters['withdrawal_type'].'%');
+        }
+        if (filled($filters['amount'] ?? null)) {
+            $query->whereRaw('CAST(amount AS CHAR) like ?', ['%'.$filters['amount'].'%']);
+        }
+        if (filled($filters['created_date'] ?? null)) {
+            $query->whereRaw('CAST(created_date AS CHAR) like ?', ['%'.$filters['created_date'].'%']);
+        }
+        if (filled($filters['updated_date'] ?? null)) {
+            $query->whereRaw('CAST(updated_date AS CHAR) like ?', ['%'.$filters['updated_date'].'%']);
+        }
+        if (filled($filters['updated_by'] ?? null)) {
+            $query->whereIn('updated_by', fn ($sub) => $sub->select('id')->from('user_account')->where('user_name', 'like', '%'.$filters['updated_by'].'%'));
+        }
+    }
+
+    /**
+     * Real server-side pagination, 300 rows per page — mirrors Customer
+     * Settlements' paginatedList(): batches the merchant/updated-by lookups
+     * every row was otherwise repeating individually, and stops loading (and
+     * querying) rows the admin isn't looking at yet.
+     *
+     * @throws ValidationException
+     */
+    public function paginatedList(string $statusKey, int $page, ?string $search = null, array $columnFilters = []): array
+    {
+        if (! array_key_exists($statusKey, self::STATUSES)) {
+            throw ValidationException::withMessages(['status' => ['Invalid status.']]);
+        }
+
+        $query = ManualSettlement::where('status', self::STATUSES[$statusKey]);
+        if (filled($search)) {
+            $this->applySearch($query, trim($search));
+        }
+        $this->applyColumnFilters($query, $columnFilters);
+
+        $paginator = $query->orderByDesc('created_date')->paginate(self::PER_PAGE, ['*'], 'page', max(1, $page));
+
+        $settlements = $paginator->getCollection();
+        $dueDays = $this->dueDayCache();
+
+        $merchantIds = $settlements->pluck('client_record_id')->unique()->values();
+        $merchantCache = Merchant::whereIn('id', $merchantIds)->get()->keyBy('id')->all();
+
+        $updatedByIds = $settlements->pluck('updated_by')->filter()->unique()->values();
+        $userAccountCache = UserAccount::whereIn('id', $updatedByIds)->pluck('user_name', 'id')->all();
+
+        return [
+            'data' => $settlements->map(fn (ManualSettlement $s) => $this->mapListRow($s, $merchantCache, $userAccountCache, $dueDays))->all(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
     }
 
     /**
