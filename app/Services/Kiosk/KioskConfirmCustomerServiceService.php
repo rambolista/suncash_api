@@ -4,6 +4,7 @@ namespace App\Services\Kiosk;
 
 use App\Models\Mysuncash\KioskCashMeterTrx;
 use App\Models\Mysuncash\KioskTerminal;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,9 +62,11 @@ class KioskConfirmCustomerServiceService
 
     public function list(string $dateFrom, string $dateTo, ?int $terminalId, int $limit): array
     {
+        // Unwrapped timestamp range (not DATE(timestamp) BETWEEN ...) so this can use an index on timestamp.
         $query = KioskCashMeterTrx::query()
             ->whereIn('type', ['in', 'out'])
-            ->whereBetween(DB::raw('DATE(timestamp)'), [$dateFrom, $dateTo]);
+            ->where('timestamp', '>=', Carbon::parse($dateFrom)->startOfDay())
+            ->where('timestamp', '<', Carbon::parse($dateTo)->addDay()->startOfDay());
 
         if ($terminalId) {
             $query->where('terminal_id', $terminalId);
