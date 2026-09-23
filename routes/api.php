@@ -109,6 +109,7 @@ use App\Http\Controllers\Api\Tools\AlivSettingsController;
 use App\Http\Controllers\Api\Tools\BankAccountController;
 use App\Http\Controllers\Api\Tools\BtcSettingsController;
 use App\Http\Controllers\Api\Tools\ComplianceController;
+use App\Http\Controllers\Api\Tools\CardLogsController;
 use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
 use App\Http\Controllers\Api\Tools\CustomerBenefitsDistributionController;
@@ -509,6 +510,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/import', [CustomerBenefitsDistributionController::class, 'import']);
         Route::post('/{batchId}/process', [CustomerBenefitsDistributionController::class, 'process'])->whereNumber('batchId');
         Route::post('/rows/{rowId}/process', [CustomerBenefitsDistributionController::class, 'processRow'])->whereNumber('rowId');
+    });
+
+    Route::prefix('card-logs')->group(function () {
+        Route::get('/', [CardLogsController::class, 'index']);
+        Route::get('/export', [CardLogsController::class, 'export']);
     });
 
     Route::prefix('transaction-limits')->group(function () {
