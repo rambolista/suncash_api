@@ -35,7 +35,9 @@ class KioskMonitoringController extends Controller
             return $response;
         }
 
-        return response()->json(['data' => $this->monitoring->list()]);
+        $rows = $this->monitoring->list();
+
+        return response()->json(['data' => $rows, 'stats' => $this->monitoring->stats($rows)]);
     }
 
     public function clear(Request $request, int $id): JsonResponse

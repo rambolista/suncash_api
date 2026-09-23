@@ -38,6 +38,16 @@ use Illuminate\Validation\ValidationException;
  */
 class KioskMonitoringService
 {
+    /** Same vocabulary legacy's kiosk_monitoring/dashboard.php JS (textStatusClass()) already treats as a hardware fault. */
+    private const JAM_VALUES = ['JAM', 'JAMMED', 'COVER OPEN', 'ERROR', 'HARDWARE ISSUE'];
+
+    private const OK_PAPER_VALUES = ['OK', 'IDLE'];
+
+    /** Same acceptor "FULL" / dispenser "WARNING" cash thresholds as legacy's cashLevelStatusText(). */
+    private const ACCEPTOR_FULL_CASH = 3000.0;
+
+    private const DISPENSER_LOW_CASH = 4499.0;
+
     public function list(): array
     {
         return DB::connection('mysuncash')->table('kiosk_terminal as kt')
@@ -74,8 +84,49 @@ class KioskMonitoringService
             ->all();
     }
 
+    /**
+     * Stat-tile counts for the "Dashboard" tab, computed off the same rows `list()` already
+     * returns (no second query) — each row already carries the same `needs_replenishment`/
+     * `full`/`jammed`/`printer_issue` flags this just sums up, so clicking a tile and
+     * filtering the List tab by that exact flag always matches the count shown here.
+     */
+    public function stats(array $rows): array
+    {
+        $totals = [
+            'total' => count($rows),
+            'online' => 0,
+            'offline' => 0,
+            'needs_replenishment' => 0,
+            'full' => 0,
+            'jammed' => 0,
+            'printer_issue' => 0,
+        ];
+
+        foreach ($rows as $row) {
+            $totals[$row['status'] === 'online' ? 'online' : 'offline']++;
+            foreach (['needs_replenishment', 'full', 'jammed', 'printer_issue'] as $flag) {
+                if ($row[$flag]) {
+                    $totals[$flag]++;
+                }
+            }
+        }
+
+        return $totals;
+    }
+
     private function present(object $row): array
     {
+        $isOnline = strtoupper((string) $row->status) === KioskMachineDetail::STATUS_OK;
+        $paper = strtoupper((string) $row->paper);
+        $acceptor = strtoupper((string) $row->acceptor);
+        $dispenser = strtoupper((string) $row->dispenser);
+        $recycler = strtoupper((string) $row->recycler);
+        $acceptorCash = (float) $row->acceptor_cash;
+        $dispenserCash = (float) $row->dispenser_cash;
+
+        // Hardware-fault heuristics only apply to terminals we've actually heard from recently —
+        // an offline terminal's paper/acceptor/dispenser fields are stale heartbeat data (see the
+        // class docblock), not a live fault, so flagging them would just be noise.
         return [
             'id' => (int) $row->id,
             'terminal_id' => (int) $row->terminal_id,
@@ -86,17 +137,21 @@ class KioskMonitoringService
             'cash_reserve' => (float) $row->cash_reserve,
             'branch_name' => $row->branch_name,
             'island_name' => $row->island_name,
-            'status' => strtoupper((string) $row->status) === KioskMachineDetail::STATUS_OK ? 'online' : 'offline',
+            'status' => $isOnline ? 'online' : 'offline',
             'paper' => $row->paper ?: null,
             'acceptor' => $row->acceptor ?: null,
             'dispenser' => $row->dispenser ?: null,
             'recycler' => $row->recycler ?: null,
-            'acceptor_cash' => (float) $row->acceptor_cash,
-            'dispenser_cash' => (float) $row->dispenser_cash,
+            'acceptor_cash' => $acceptorCash,
+            'dispenser_cash' => $dispenserCash,
             'is_acknowledged' => (string) $row->is_acknowledge === '1',
             'updated_by' => $row->updated_by,
             'last_seen' => $row->update_date,
             'offline_date' => $row->offline_date,
+            'needs_replenishment' => $isOnline && $row->terminal_type === 'atm' && $dispenserCash <= self::DISPENSER_LOW_CASH,
+            'full' => $isOnline && ($acceptorCash >= self::ACCEPTOR_FULL_CASH || $acceptor === 'FULL'),
+            'jammed' => $isOnline && (in_array($acceptor, self::JAM_VALUES, true) || in_array($dispenser, self::JAM_VALUES, true) || in_array($recycler, self::JAM_VALUES, true)),
+            'printer_issue' => $isOnline && $paper !== '' && ! in_array($paper, self::OK_PAPER_VALUES, true),
         ];
     }
 
