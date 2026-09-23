@@ -838,6 +838,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Users
         Route::post('/users/{user}/roles', [UserController::class, 'assignRoles']);
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
         Route::apiResource('/users', UserController::class);
     });
 });

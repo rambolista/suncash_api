@@ -8,7 +8,10 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password as PasswordBroker;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
@@ -34,13 +37,16 @@ class UserController extends Controller
 
         $data = $this->validatePayload($request);
 
+        // A password typed here is optional — if left blank, the account gets an
+        // unguessable random hash and the new user sets their own via the emailed
+        // reset link below (same flow as "Forgot Password").
         $user = User::create([
             'name'          => $this->buildFullName($data['first_name'], $data['middle_name'] ?? null, $data['last_name']),
             'first_name'    => $this->normalizeRequiredString($data['first_name']),
             'middle_name'   => $this->normalizeNullableString($data['middle_name'] ?? null),
             'last_name'     => $this->normalizeRequiredString($data['last_name']),
             'email'         => $data['email'],
-            'password'      => Hash::make($data['password']),
+            'password'      => Hash::make($data['password'] ?? Str::random(40)),
             'mobile_number' => $this->normalizeNullableString($data['mobile_number'] ?? null),
             'address'       => $this->normalizeNullableString($data['address'] ?? null),
             'status'        => $this->normalizeStatus($data['status'] ?? 'active'),
@@ -55,6 +61,8 @@ class UserController extends Controller
         }
 
         ActivityLog::recordCreated($request->user(), 'Users', $user, ['first_name', 'middle_name', 'last_name', 'email', 'mobile_number', 'address', 'status'], $request);
+
+        $this->sendPasswordSetupLink($user);
 
         return response()->json($this->serializeUser($user->fresh('roles:id,name')), 201);
     }
@@ -179,6 +187,48 @@ class UserController extends Controller
         ]);
     }
 
+    /** POST /access-management/users/{user}/reset-password — same "Forgot Password" e-mail flow, admin-triggered. */
+    public function resetPassword(Request $request, User $user): JsonResponse
+    {
+        $authUser = $request->user();
+        if (! $this->userHasPermission($authUser, '/apps/access-management/users', 'can_edit')) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        if (! $this->sendPasswordSetupLink($user)) {
+            return response()->json(['message' => 'Unable to send the reset link — please try again.'], 422);
+        }
+
+        ActivityLog::recordAction($authUser, 'Users', 'password_reset_sent', "Sent a password reset link to {$user->name}", $user, $request);
+
+        return response()->json(['message' => "Password reset link sent to {$user->email}."]);
+    }
+
+    /**
+     * The approval/creation itself has already been committed by the time this
+     * runs — a mail delivery problem shouldn't turn a successful action into
+     * an API error, so failures are logged and swallowed (matches the same
+     * reasoning as MerchantSettlementService::sendDecisionEmail()).
+     */
+    private function sendPasswordSetupLink(User $user): bool
+    {
+        try {
+            $status = PasswordBroker::sendResetLink(['email' => $user->email]);
+
+            if ($status !== PasswordBroker::RESET_LINK_SENT) {
+                Log::warning('Failed to send password reset link', ['user_id' => $user->id, 'status' => $status]);
+
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to send password reset link', ['user_id' => $user->id, 'error' => $exception->getMessage()]);
+
+            return false;
+        }
+    }
+
     private function validatePayload(Request $request, ?User $user = null, bool $isUpdate = false): array
     {
         $payload = array_merge(
@@ -215,7 +265,9 @@ class UserController extends Controller
             $rules['avatar'] = ['sometimes', 'nullable', 'image', 'max:5120'];
             $rules['clear_avatar'][0] = 'sometimes';
         } else {
-            $rules['password'] = ['required', Password::min(8)];
+            // Optional here on purpose — see the comment in store(): a blank
+            // password means "email them a link to set their own".
+            $rules['password'] = ['nullable', Password::min(8)];
         }
 
         return Validator::make($payload, $rules)->validate();
