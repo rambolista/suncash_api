@@ -111,6 +111,7 @@ use App\Http\Controllers\Api\Tools\BtcSettingsController;
 use App\Http\Controllers\Api\Tools\ComplianceController;
 use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
+use App\Http\Controllers\Api\Tools\CustomerBenefitsDistributionController;
 use App\Http\Controllers\Api\Tools\PrepaySettingsController;
 use App\Http\Controllers\Api\Tools\VoucherBatchGenerationController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
@@ -498,6 +499,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{batchId}/process', [VoucherBatchGenerationController::class, 'process'])->whereNumber('batchId');
         Route::post('/{batchId}/resend', [VoucherBatchGenerationController::class, 'resend'])->whereNumber('batchId');
         Route::post('/rows/{rowId}/skip', [VoucherBatchGenerationController::class, 'skip'])->whereNumber('rowId');
+    });
+
+    Route::prefix('customer-benefits-distribution')->group(function () {
+        Route::get('/', [CustomerBenefitsDistributionController::class, 'index']);
+        Route::get('/template', [CustomerBenefitsDistributionController::class, 'template']);
+        Route::get('/export', [CustomerBenefitsDistributionController::class, 'export']);
+        Route::get('/{batchId}/rows', [CustomerBenefitsDistributionController::class, 'rows'])->whereNumber('batchId');
+        Route::post('/import', [CustomerBenefitsDistributionController::class, 'import']);
+        Route::post('/{batchId}/process', [CustomerBenefitsDistributionController::class, 'process'])->whereNumber('batchId');
+        Route::post('/rows/{rowId}/process', [CustomerBenefitsDistributionController::class, 'processRow'])->whereNumber('rowId');
     });
 
     Route::prefix('transaction-limits')->group(function () {
