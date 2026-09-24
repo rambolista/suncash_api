@@ -53,6 +53,7 @@ use App\Http\Controllers\Api\Kiosk\KioskCashExposureReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashMeterController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalController;
 use App\Http\Controllers\Api\Kiosk\KioskCommissionApprovalReportController;
+use App\Http\Controllers\Api\Kiosk\KioskCreditVoucherReportController;
 use App\Http\Controllers\Api\Kiosk\KioskCashManagementController;
 use App\Http\Controllers\Api\Kiosk\KioskConfirmCustomerServiceController;
 use App\Http\Controllers\Api\Kiosk\KioskReplenishmentReceiptController;
@@ -104,6 +105,7 @@ use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\Transactions\ResendVoucherController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Tools\CustomerDebitCreditController;
+use App\Http\Controllers\Api\Tools\PaymentManagementController;
 use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
 use App\Http\Controllers\Api\Reports\UtilityBillpayReportController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
@@ -609,6 +611,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/transactions/export', [CustomerDebitCreditController::class, 'exportTransactions'])->whereNumber('id');
     });
 
+    Route::prefix('payment-management')->group(function () {
+        Route::get('/', [PaymentManagementController::class, 'index']);
+        Route::get('/dashboard', [PaymentManagementController::class, 'dashboard']);
+        Route::get('/export', [PaymentManagementController::class, 'export']);
+        Route::post('/', [PaymentManagementController::class, 'store']);
+        Route::get('/{id}', [PaymentManagementController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [PaymentManagementController::class, 'update'])->whereNumber('id');
+        Route::post('/{id}/status', [PaymentManagementController::class, 'updateStatus'])->whereNumber('id');
+        Route::post('/{id}/clone-draft', [PaymentManagementController::class, 'cloneToDraft'])->whereNumber('id');
+        Route::get('/{id}/history', [PaymentManagementController::class, 'history'])->whereNumber('id');
+        Route::get('/{id}/history/export', [PaymentManagementController::class, 'exportHistory'])->whereNumber('id');
+    });
+
     Route::prefix('sms-responses')->group(function () {
         Route::get('/merchants', [SmsResponseController::class, 'merchants']);
         Route::get('/', [SmsResponseController::class, 'index']);
@@ -814,6 +829,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('kiosk-commission-approval-reports')->group(function () {
         Route::get('/', [KioskCommissionApprovalReportController::class, 'index']);
         Route::get('/export', [KioskCommissionApprovalReportController::class, 'export']);
+    });
+
+    Route::prefix('kiosk-credit-voucher-reports')->group(function () {
+        Route::get('/', [KioskCreditVoucherReportController::class, 'index']);
+        Route::get('/terminals', [KioskCreditVoucherReportController::class, 'terminals']);
+        Route::get('/export', [KioskCreditVoucherReportController::class, 'export']);
     });
 
     Route::prefix('customer-bank-loads')->group(function () {
