@@ -14,14 +14,20 @@ class VoidTransactionController extends Controller
 
     public function __construct(private readonly VoidTransactionService $voidTransaction) {}
 
+    /**
+     * Every voidXxx() throws under the 'id' key regardless of the actual
+     * reason (already voided, missing linked customer, insufficient balance,
+     * etc.) — surface that real message instead of a canned "Not found.",
+     * which previously hid why a visibly-existing transaction couldn't void.
+     */
     private function invalid(ValidationException $exception): JsonResponse
     {
-        $status = array_key_exists('id', $exception->errors()) ? 404 : 422;
+        $message = collect($exception->errors())->collapse()->first() ?? 'The given data was invalid.';
 
         return response()->json([
-            'message' => $status === 404 ? 'Not found.' : 'The given data was invalid.',
+            'message' => $message,
             'errors' => $exception->errors(),
-        ], $status);
+        ], str_contains(strtolower($message), 'not found') ? 404 : 422);
     }
 
     public function search(Request $request): JsonResponse

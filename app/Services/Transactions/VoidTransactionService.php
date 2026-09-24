@@ -281,7 +281,7 @@ class VoidTransactionService
 
             WebposTransaction::where('transaction_type', 'MONEY_TRANSFER')->where('transaction_id', $transactionId)->update(['status' => 1]);
             if (filled($r->cashout_reference)) {
-                CashoutTransactionV3::where('id', $transactionId)->update(['status' => 3]);
+                CashoutTransactionV3::where('id', $r->cr_id)->update(['status' => 3]);
             }
         });
 

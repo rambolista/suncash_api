@@ -44,15 +44,42 @@ class TransactionRowFetcher
         };
     }
 
+    /**
+     * `webpos_transaction.transaction_id` used to double as
+     * `cashout_transactionsv3.id` (older rows, `reference` left blank/-1).
+     * Newer rows carry a long POS-generated reference number in
+     * `transaction_id` instead and moved the real cashout id into
+     * `reference` — join on whichever one actually points at a cashout row,
+     * or every money transfer since that change shows up here with blank
+     * sender/beneficiary details and fails to void ("Invalid customer
+     * record") even though the transaction is perfectly valid.
+     */
     public function moneyTransferRow(string $transactionId): ?object
     {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('cashout_transaction_detailsv3 as c', 'c.cashout_id', '=', 'w.transaction_id')
-            ->leftJoin('cashout_transactionsv3 as cr', 'cr.id', '=', 'w.transaction_id')
-            ->where('w.transaction_type', 'MONEY_TRANSFER')
-            ->where('w.transaction_id', $transactionId)
-            ->select('c.*', 'w.merchant_id', 'w.amount', 'w.status as webpos_status', 'w.transaction_date', 'w.terminal_id', 'w.terminal_user_id', 'cr.cashout_reference')
+        $w = DB::connection('mysuncash')->table('webpos_transaction')
+            ->where('transaction_type', 'MONEY_TRANSFER')
+            ->where('transaction_id', $transactionId)
             ->first();
+        if (! $w) {
+            return null;
+        }
+
+        $cashoutId = (filled($w->reference) && (int) $w->reference > 0) ? $w->reference : $transactionId;
+
+        $cashout = DB::connection('mysuncash')->table('cashout_transactionsv3 as cr')
+            ->leftJoin('cashout_transaction_detailsv3 as c', 'c.cashout_id', '=', 'cr.id')
+            ->where('cr.id', $cashoutId)
+            ->select('c.*', 'cr.cashout_reference', 'cr.id as cr_id')
+            ->first();
+
+        return (object) array_merge((array) ($cashout ?: []), [
+            'merchant_id' => $w->merchant_id,
+            'amount' => $w->amount,
+            'webpos_status' => $w->status,
+            'transaction_date' => $w->transaction_date,
+            'terminal_id' => $w->terminal_id,
+            'terminal_user_id' => $w->terminal_user_id,
+        ]);
     }
 
     public function phoneToPhoneRow(string $transactionId): ?object
@@ -89,15 +116,33 @@ class TransactionRowFetcher
             ->first();
     }
 
+    /** Same `transaction_id` vs `reference` split as {@see moneyTransferRow()} — CASHOUT_CODE redemptions use the identical webpos_transaction shape. */
     public function cashoutCodeRow(string $transactionId): ?object
     {
-        return DB::connection('mysuncash')->table('webpos_transaction as w')
-            ->leftJoin('cashout_transaction_detailsv3 as c', 'c.id', '=', 'w.transaction_id')
-            ->leftJoin('cashout_transactionsv3 as cr', 'cr.id', '=', 'w.transaction_id')
-            ->where('w.transaction_type', 'CASHOUT_CODE')
-            ->where('w.transaction_id', $transactionId)
-            ->select('c.*', 'w.merchant_id', 'w.amount', 'w.status as webpos_status', 'w.transaction_date', 'w.terminal_id', 'w.terminal_user_id', 'cr.cashout_reference')
+        $w = DB::connection('mysuncash')->table('webpos_transaction')
+            ->where('transaction_type', 'CASHOUT_CODE')
+            ->where('transaction_id', $transactionId)
             ->first();
+        if (! $w) {
+            return null;
+        }
+
+        $cashoutId = (filled($w->reference) && (int) $w->reference > 0) ? $w->reference : $transactionId;
+
+        $cashout = DB::connection('mysuncash')->table('cashout_transactionsv3 as cr')
+            ->leftJoin('cashout_transaction_detailsv3 as c', 'c.cashout_id', '=', 'cr.id')
+            ->where('cr.id', $cashoutId)
+            ->select('c.*', 'cr.cashout_reference', 'cr.id as cr_id')
+            ->first();
+
+        return (object) array_merge((array) ($cashout ?: []), [
+            'merchant_id' => $w->merchant_id,
+            'amount' => $w->amount,
+            'webpos_status' => $w->status,
+            'transaction_date' => $w->transaction_date,
+            'terminal_id' => $w->terminal_id,
+            'terminal_user_id' => $w->terminal_user_id,
+        ]);
     }
 
     public function cashoutMobileRow(string $transactionId): ?object
@@ -126,11 +171,7 @@ class TransactionRowFetcher
         }
 
         return DB::connection('mysuncash')->table('business_bill_transaction as bbt')
-            ->leftJoin('webpos_transaction as w', function ($join) {
-                $join->on('w.transaction_id', '=', 'bbt.transaction_id')->where('w.transaction_type', 'BILLPAY');
-            })
             ->where('bbt.transaction_id', (int) $transactionId)
-            ->select('bbt.*', 'w.merchant_id as w_merchant_id')
             ->first();
     }
 
