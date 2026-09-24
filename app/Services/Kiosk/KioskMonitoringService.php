@@ -43,10 +43,17 @@ class KioskMonitoringService
 
     private const OK_PAPER_VALUES = ['OK', 'IDLE'];
 
-    /** Same acceptor "FULL" / dispenser "WARNING" cash thresholds as legacy's cashLevelStatusText(). */
+    /** A refill warning, not a fault — legacy's textStatusClass() buckets this as "status-warning", every other non-OK paper value as "status-error". */
+    private const PAPER_LOW_VALUES = ['PAPER LOW', 'PAPER_LOW'];
+
+    /** Same acceptor WARNING/FULL and dispenser LOW/WARNING cash thresholds as legacy's cashLevelStatusText(). */
+    private const ACCEPTOR_WARNING_CASH = 1500.0;
+
     private const ACCEPTOR_FULL_CASH = 3000.0;
 
-    private const DISPENSER_LOW_CASH = 4499.0;
+    private const DISPENSER_CRITICAL_CASH = 2000.0;
+
+    private const DISPENSER_WARNING_CASH = 4499.0;
 
     public function list(): array
     {
@@ -87,8 +94,10 @@ class KioskMonitoringService
     /**
      * Stat-tile counts for the "Dashboard" tab, computed off the same rows `list()` already
      * returns (no second query) — each row already carries the same `needs_replenishment`/
-     * `full`/`jammed`/`printer_issue` flags this just sums up, so clicking a tile and
-     * filtering the List tab by that exact flag always matches the count shown here.
+     * `needs_cash_collection`/`jammed`/`printer_issue`/`paper_low` flags this just sums up, so
+     * clicking a tile and filtering the List tab by that exact flag always matches the count
+     * shown here. The frontend also re-derives this same shape client-side (summing these
+     * already-computed row flags, not re-deriving the thresholds) to scope it by terminal type.
      */
     public function stats(array $rows): array
     {
@@ -97,14 +106,15 @@ class KioskMonitoringService
             'online' => 0,
             'offline' => 0,
             'needs_replenishment' => 0,
-            'full' => 0,
+            'needs_cash_collection' => 0,
             'jammed' => 0,
             'printer_issue' => 0,
+            'paper_low' => 0,
         ];
 
         foreach ($rows as $row) {
             $totals[$row['status'] === 'online' ? 'online' : 'offline']++;
-            foreach (['needs_replenishment', 'full', 'jammed', 'printer_issue'] as $flag) {
+            foreach (['needs_replenishment', 'needs_cash_collection', 'jammed', 'printer_issue', 'paper_low'] as $flag) {
                 if ($row[$flag]) {
                     $totals[$flag]++;
                 }
@@ -117,12 +127,19 @@ class KioskMonitoringService
     private function present(object $row): array
     {
         $isOnline = strtoupper((string) $row->status) === KioskMachineDetail::STATUS_OK;
+        $isAtm = $row->terminal_type === 'atm';
         $paper = strtoupper((string) $row->paper);
         $acceptor = strtoupper((string) $row->acceptor);
         $dispenser = strtoupper((string) $row->dispenser);
         $recycler = strtoupper((string) $row->recycler);
         $acceptorCash = (float) $row->acceptor_cash;
         $dispenserCash = (float) $row->dispenser_cash;
+
+        $acceptorFull = $acceptorCash >= self::ACCEPTOR_FULL_CASH || $acceptor === 'FULL';
+        $acceptorWarning = ! $acceptorFull && ($acceptorCash >= self::ACCEPTOR_WARNING_CASH || $acceptor === 'WARNING');
+        $dispenserCritical = $isAtm && $dispenserCash <= self::DISPENSER_CRITICAL_CASH;
+        $dispenserWarning = $isAtm && ! $dispenserCritical && $dispenserCash <= self::DISPENSER_WARNING_CASH;
+        $paperLow = in_array($paper, self::PAPER_LOW_VALUES, true);
 
         // Hardware-fault heuristics only apply to terminals we've actually heard from recently —
         // an offline terminal's paper/acceptor/dispenser fields are stale heartbeat data (see the
@@ -143,16 +160,42 @@ class KioskMonitoringService
             'dispenser' => $row->dispenser ?: null,
             'recycler' => $row->recycler ?: null,
             'acceptor_cash' => $acceptorCash,
-            'dispenser_cash' => $dispenserCash,
+            'dispenser_cash' => $isAtm ? $dispenserCash : null,
+            'cash_mgmt' => $isOnline ? $this->cashMgmtMessage($isAtm, $acceptorFull, $acceptorWarning, $dispenserCritical, $dispenserWarning) : null,
             'is_acknowledged' => (string) $row->is_acknowledge === '1',
             'updated_by' => $row->updated_by,
             'last_seen' => $row->update_date,
             'offline_date' => $row->offline_date,
-            'needs_replenishment' => $isOnline && $row->terminal_type === 'atm' && $dispenserCash <= self::DISPENSER_LOW_CASH,
-            'full' => $isOnline && ($acceptorCash >= self::ACCEPTOR_FULL_CASH || $acceptor === 'FULL'),
+            'needs_replenishment' => $isOnline && ($dispenserCritical || $dispenserWarning),
+            'needs_cash_collection' => $isOnline && ($acceptorFull || $acceptorWarning),
             'jammed' => $isOnline && (in_array($acceptor, self::JAM_VALUES, true) || in_array($dispenser, self::JAM_VALUES, true) || in_array($recycler, self::JAM_VALUES, true)),
-            'printer_issue' => $isOnline && $paper !== '' && ! in_array($paper, self::OK_PAPER_VALUES, true),
+            'printer_issue' => $isOnline && $paper !== '' && ! $paperLow && ! in_array($paper, self::OK_PAPER_VALUES, true),
+            'paper_low' => $isOnline && $paperLow,
         ];
+    }
+
+    /**
+     * Legacy's Cash Mgmt column text (kiosk_monitoring/dashboard.php `cash_mngt`) — the specific
+     * per-row action, separate from the aggregate "Collect Cash"/"Needs Replenishment" tiles.
+     */
+    private function cashMgmtMessage(bool $isAtm, bool $acceptorFull, bool $acceptorWarning, bool $dispenserCritical, bool $dispenserWarning): string
+    {
+        $messages = [];
+        if ($acceptorFull) {
+            $messages[] = 'Schedule Clearing';
+        } elseif ($acceptorWarning) {
+            $messages[] = 'Prepare Acceptor Clearing';
+        }
+
+        if ($isAtm) {
+            if ($dispenserCritical) {
+                $messages[] = 'Replenish Dispenser Now';
+            } elseif ($dispenserWarning) {
+                $messages[] = 'Prepare Replenishment';
+            }
+        }
+
+        return $messages ? implode(' | ', $messages) : 'OK';
     }
 
     /**
