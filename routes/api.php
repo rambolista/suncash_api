@@ -116,6 +116,7 @@ use App\Http\Controllers\Api\Tools\CreditCardFeeController;
 use App\Http\Controllers\Api\Tools\FeatureReleaseController;
 use App\Http\Controllers\Api\Tools\CustomerBenefitsDistributionController;
 use App\Http\Controllers\Api\Tools\PrepaySettingsController;
+use App\Http\Controllers\Api\Tools\SmsLogsController;
 use App\Http\Controllers\Api\Tools\VoucherBatchGenerationController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
 use App\Http\Controllers\Api\Tools\SmsResponseController;
@@ -529,6 +530,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('billers-setup')->group(function () {
         Route::get('/', [BillersSetupController::class, 'index']);
         Route::post('/', [BillersSetupController::class, 'save']);
+    });
+
+    Route::prefix('sms-logs')->group(function () {
+        Route::get('/', [SmsLogsController::class, 'index']);
+        Route::get('/export', [SmsLogsController::class, 'export']);
     });
 
     Route::prefix('transaction-limits')->group(function () {
