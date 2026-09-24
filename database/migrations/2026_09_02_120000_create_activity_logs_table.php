@@ -20,7 +20,8 @@ return new class extends Migration
             $table->string('module')->nullable();
             $table->foreignId('menu_id')->nullable()->constrained('menus')->nullOnDelete();
             $table->string('auditable_type')->nullable();
-            $table->unsignedBigInteger('auditable_id')->nullable();
+            // string, not unsignedBigInteger: some auditables (e.g. notifications) key on a UUID
+            $table->string('auditable_id')->nullable();
             $table->string('description')->nullable();
             $table->json('changes')->nullable();
             $table->string('ip_address', 45)->nullable();
