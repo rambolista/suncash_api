@@ -109,6 +109,7 @@ use App\Http\Controllers\Api\Tools\AlivSettingsController;
 use App\Http\Controllers\Api\Tools\BankAccountController;
 use App\Http\Controllers\Api\Tools\BtcSettingsController;
 use App\Http\Controllers\Api\Tools\ComplianceController;
+use App\Http\Controllers\Api\Tools\BillersSetupController;
 use App\Http\Controllers\Api\Tools\CardLogsController;
 use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
@@ -523,6 +524,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/islands', [FeatureReleaseController::class, 'islands']);
         Route::post('/', [FeatureReleaseController::class, 'store']);
         Route::put('/{id}', [FeatureReleaseController::class, 'update'])->whereNumber('id');
+    });
+
+    Route::prefix('billers-setup')->group(function () {
+        Route::get('/', [BillersSetupController::class, 'index']);
+        Route::post('/', [BillersSetupController::class, 'save']);
     });
 
     Route::prefix('transaction-limits')->group(function () {
