@@ -103,6 +103,7 @@ use App\Http\Controllers\Api\Settings\WuSettingController;
 use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\Transactions\ResendVoucherController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
+use App\Http\Controllers\Api\Tools\CustomerDebitCreditController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
 use App\Http\Controllers\Api\Tools\SendSmsController;
@@ -583,6 +584,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/promo-status', [CustomerManagementController::class, 'promoStatus'])->whereNumber('id');
         Route::post('/{id}/promo-status', [CustomerManagementController::class, 'updatePromoStatus'])->whereNumber('id');
         Route::post('/{id}/push-notification', [CustomerManagementController::class, 'sendPushNotification'])->whereNumber('id');
+    });
+
+    Route::prefix('customer-debit-credit')->group(function () {
+        Route::get('/search', [CustomerDebitCreditController::class, 'search']);
+        Route::get('/transaction-types', [CustomerDebitCreditController::class, 'transactionTypes']);
+        Route::get('/{id}', [CustomerDebitCreditController::class, 'show'])->whereNumber('id');
+        Route::post('/{id}/process', [CustomerDebitCreditController::class, 'process'])->whereNumber('id');
+        Route::get('/{id}/transactions', [CustomerDebitCreditController::class, 'transactions'])->whereNumber('id');
+        Route::get('/{id}/transactions/export', [CustomerDebitCreditController::class, 'exportTransactions'])->whereNumber('id');
     });
 
     Route::prefix('sms-responses')->group(function () {
