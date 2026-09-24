@@ -105,6 +105,7 @@ use App\Http\Controllers\Api\Transactions\ResendVoucherController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Tools\CustomerDebitCreditController;
 use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
+use App\Http\Controllers\Api\Reports\UtilityBillpayReportController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
 use App\Http\Controllers\Api\Tools\SendSmsController;
@@ -591,6 +592,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [MoneyTransferReportController::class, 'index']);
         Route::get('/cashiers', [MoneyTransferReportController::class, 'cashiers']);
         Route::get('/export', [MoneyTransferReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/utility-billpay')->group(function () {
+        Route::get('/', [UtilityBillpayReportController::class, 'index']);
+        Route::get('/billers', [UtilityBillpayReportController::class, 'billers']);
+        Route::get('/export', [UtilityBillpayReportController::class, 'export']);
     });
 
     Route::prefix('customer-debit-credit')->group(function () {

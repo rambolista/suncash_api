@@ -27,6 +27,7 @@ trait ExportsTabularReports
         array $filters = [],
         ?int $maxPdfRows = 1000,
         string $orientation = 'landscape',
+        array $summary = [],
     ): StreamedResponse|Response {
         if ($format === 'pdf') {
             $truncated = $maxPdfRows !== null && count($rows) > $maxPdfRows;
@@ -43,16 +44,23 @@ trait ExportsTabularReports
                 'rows' => $pdfRows,
                 'totalCount' => count($rows),
                 'truncated' => $truncated,
+                'summary' => $summary,
             ])->setPaper('a4', $orientation)->download($filenamePrefix.'-'.now()->format('Ymd-His').'.pdf');
         }
 
         $filename = $filenamePrefix.'-'.now()->format('Ymd-His').'.csv';
 
-        return response()->streamDownload(function () use ($rows, $columns) {
+        return response()->streamDownload(function () use ($rows, $columns, $summary) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, array_column($columns, 'label'));
             foreach ($rows as $row) {
                 fputcsv($handle, array_map(fn ($column) => $row[$column['key']] ?? '', $columns));
+            }
+            if ($summary) {
+                fputcsv($handle, []);
+                foreach ($summary as $label => $value) {
+                    fputcsv($handle, [$label, $value]);
+                }
             }
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv']);

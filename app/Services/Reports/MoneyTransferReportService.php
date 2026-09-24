@@ -175,9 +175,28 @@ class MoneyTransferReportService
             ->all();
     }
 
-    /** Legacy `getcashierlist()` — every client, unfiltered (an `initiating_merchant` id can reference any of them). */
+    /** Legacy `getcashierlist()` — every client with a usable name (72 of 850 have a blank `legal_name`). */
     public function cashiers(): array
     {
-        return Merchant::orderBy('legal_name')->get(['id', 'legal_name'])->all();
+        return Merchant::whereNotNull('legal_name')
+            ->whereRaw("TRIM(legal_name) != ''")
+            ->orderBy('legal_name')
+            ->get(['id', 'legal_name'])
+            ->all();
+    }
+
+    /** Same filtered query, aggregated per currency — always consistent with what's listed/exported. */
+    public function totalSummary(bool $completed, ?string $from, ?string $to, ?int $cashierId, ?string $search): array
+    {
+        $rows = $this->baseQuery($completed ? self::STATUS_COMPLETED : self::STATUS_PENDING, $from, $to, $cashierId, $search)
+            ->select(['cashout_transactionsv3.currency'])
+            ->selectRaw('COUNT(*) as cnt, SUM(cashout_transactionsv3.amount) as total')
+            ->groupBy('cashout_transactionsv3.currency')
+            ->get();
+
+        return [
+            'transaction_count' => (int) $rows->sum('cnt'),
+            'amounts' => $rows->map(fn ($row) => ['currency' => $row->currency, 'total' => (float) $row->total])->all(),
+        ];
     }
 }

@@ -33,14 +33,14 @@ class MoneyTransferReportController extends Controller
             return $response;
         }
 
-        $result = $this->report->paginatedList(
-            $request->query('type') === 'completed',
-            $request->query('from'),
-            $request->query('to'),
-            $request->query('cashier') ? (int) $request->query('cashier') : null,
-            $request->query('search'),
-            (int) $request->query('page', 1),
-        );
+        $completed = $request->query('type') === 'completed';
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $cashierId = $request->query('cashier') ? (int) $request->query('cashier') : null;
+        $search = $request->query('search');
+
+        $result = $this->report->paginatedList($completed, $from, $to, $cashierId, $search, (int) $request->query('page', 1));
+        $result['summary'] = $this->report->totalSummary($completed, $from, $to, $cashierId, $search);
 
         return response()->json($result);
     }
@@ -62,6 +62,12 @@ class MoneyTransferReportController extends Controller
         $columns = $completed ? MoneyTransferReportService::COLUMNS_COMPLETED : MoneyTransferReportService::COLUMNS_PENDING;
         $title = $completed ? 'Completed Money Transfers Report' : 'Pending Money Transfers Report';
 
-        return $this->exportTabularReport($request, $format, $columns, $rows, $title, $completed ? 'money-transfer-completed' : 'money-transfer-pending', array_filter(['from' => $from, 'to' => $to, 'search' => $search]), maxPdfRows: 1000);
+        $summaryData = $this->report->totalSummary($completed, $from, $to, $cashierId, $search);
+        $summary = ['Total Transaction Count' => $summaryData['transaction_count']];
+        foreach ($summaryData['amounts'] as $amount) {
+            $summary["Total Amount ({$amount['currency']})"] = number_format($amount['total'], 2);
+        }
+
+        return $this->exportTabularReport($request, $format, $columns, $rows, $title, $completed ? 'money-transfer-completed' : 'money-transfer-pending', array_filter(['from' => $from, 'to' => $to, 'search' => $search]), maxPdfRows: 1000, summary: $summary);
     }
 }

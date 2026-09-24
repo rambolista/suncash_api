@@ -48,5 +48,15 @@
     @if ($truncated)
         <div class="note">Showing first {{ count($rows) }} of {{ $totalCount }} records. Export as Excel for the full data set.</div>
     @endif
+
+    @if (! empty($summary))
+        <table style="width: auto; margin-top: 14px;">
+            <tbody>
+                @foreach ($summary as $label => $value)
+                    <tr><th>{{ $label }}</th><td>{{ $value }}</td></tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 </body>
 </html>
