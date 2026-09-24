@@ -161,6 +161,10 @@ class KioskMonitoringService
             'recycler' => $row->recycler ?: null,
             'acceptor_cash' => $acceptorCash,
             'dispenser_cash' => $isAtm ? $dispenserCash : null,
+            // Legacy's cashLevelStatusClass() bucket for each cash figure — colors the Acceptor
+            // Cash/Dispenser Cash/Cash Mgmt columns on every row, not just online ones.
+            'acceptor_level' => $acceptorFull ? 'full' : ($acceptorWarning ? 'warning' : 'ok'),
+            'dispenser_level' => ! $isAtm ? 'na' : ($dispenserCritical ? 'critical' : ($dispenserWarning ? 'warning' : 'ok')),
             'cash_mgmt' => $isOnline ? $this->cashMgmtMessage($isAtm, $acceptorFull, $acceptorWarning, $dispenserCritical, $dispenserWarning) : null,
             'is_acknowledged' => (string) $row->is_acknowledge === '1',
             'updated_by' => $row->updated_by,
