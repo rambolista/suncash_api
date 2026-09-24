@@ -104,6 +104,7 @@ use App\Http\Controllers\Api\Terminal\TerminalManagementController;
 use App\Http\Controllers\Api\Transactions\ResendVoucherController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Tools\CustomerDebitCreditController;
+use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
 use App\Http\Controllers\Api\Tools\SendSmsController;
@@ -584,6 +585,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/promo-status', [CustomerManagementController::class, 'promoStatus'])->whereNumber('id');
         Route::post('/{id}/promo-status', [CustomerManagementController::class, 'updatePromoStatus'])->whereNumber('id');
         Route::post('/{id}/push-notification', [CustomerManagementController::class, 'sendPushNotification'])->whereNumber('id');
+    });
+
+    Route::prefix('reports/money-transfer')->group(function () {
+        Route::get('/', [MoneyTransferReportController::class, 'index']);
+        Route::get('/cashiers', [MoneyTransferReportController::class, 'cashiers']);
+        Route::get('/export', [MoneyTransferReportController::class, 'export']);
     });
 
     Route::prefix('customer-debit-credit')->group(function () {
