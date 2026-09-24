@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccessManagement\CustomerController;
 use App\Http\Controllers\Api\AccessManagement\CustomerMenuController;
 use App\Http\Controllers\Api\AccessManagement\MenuController;
+use App\Http\Controllers\Api\FavoriteMenuController;
 use App\Http\Controllers\Api\AccessManagement\MenuIconController;
 use App\Http\Controllers\Api\AccessManagement\MerchantBranchController;
 use App\Http\Controllers\Api\AccessManagement\MerchantController;
@@ -193,6 +194,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/theme-preference', [ThemePreferenceController::class, 'update']);
     Route::put('/project-settings', [ProjectSettingController::class, 'update']);
     Route::get('/customer-menus', [CustomerMenuController::class, 'index']);
+
+    Route::prefix('favorites')->group(function () {
+        Route::get('/', [FavoriteMenuController::class, 'index']);
+        Route::post('/{menu}/toggle', [FavoriteMenuController::class, 'toggle']);
+    });
 
     Route::prefix('customer')->group(function () {
         Route::get('/2fa', [CustomerTwoFactorSettingsController::class, 'status']);

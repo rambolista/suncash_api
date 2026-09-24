@@ -29,6 +29,11 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
+    public function favoriteMenus(): BelongsToMany
+    {
+        return $this->belongsToMany(Menu::class, 'menu_favorites')->withTimestamps();
+    }
+
     public function twoFactorChallenges(): HasMany
     {
         return $this->hasMany(TwoFactorChallenge::class);
