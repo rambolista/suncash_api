@@ -261,11 +261,35 @@ class PaymentManagementService
         return Storage::disk('s3')->temporaryUrl(substr($marker, strlen($prefix)), now()->addMinutes(20));
     }
 
+    /** Legacy `upload_payment_doc()`'s allowlist — keyed by the MIME type `finfo` actually detects in the decoded bytes, not whatever extension the client claims. */
+    private const ALLOWED_DOCUMENT_MIME_TYPES = [
+        'image/jpeg' => 'jpg', 'image/jpg' => 'jpg', 'image/png' => 'png',
+        'application/pdf' => 'pdf',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-excel' => 'xls',
+        'text/csv' => 'csv',
+    ];
+
+    /** @throws ValidationException */
     private function storeDocument(int $paymentId, string $base64, ?string $fileName): void
     {
-        $ext = ($fileName && str_contains($fileName, '.')) ? strtolower(pathinfo($fileName, PATHINFO_EXTENSION)) : '';
-        $key = "payment-management/{$paymentId}/".now()->timestamp.'_'.Str::random(8).($ext ? ".{$ext}" : '');
-        Storage::disk('s3')->put($key, base64_decode($base64));
+        $fileData = base64_decode($base64, true);
+        if ($fileData === false || $fileData === '') {
+            throw ValidationException::withMessages(['document' => ['Invalid file data.']]);
+        }
+        if (str_contains($fileData, '<?php')) {
+            throw ValidationException::withMessages(['document' => ['Invalid file.']]);
+        }
+
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($fileData);
+        $ext = self::ALLOWED_DOCUMENT_MIME_TYPES[$mime] ?? null;
+        if ($ext === null) {
+            throw ValidationException::withMessages(['document' => ['Unsupported file type. Allowed: PDF, Excel, Word, CSV, or an image.']]);
+        }
+
+        $key = "payment-management/{$paymentId}/".now()->timestamp.'_'.Str::random(8).".{$ext}";
+        Storage::disk('s3')->put($key, $fileData);
         $marker = config('filesystems.disks.s3.bucket').'/'.config('filesystems.disks.s3.root').'/'.$key;
 
         DB::connection('mysuncash')->table('payment_documents')->where('payment_id', $paymentId)->where('is_active', 1)->update(['is_active' => 0]);
