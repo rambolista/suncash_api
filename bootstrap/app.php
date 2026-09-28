@@ -24,6 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
             at: ['127.0.0.1', '::1'],
             headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PORT | Request::HEADER_X_FORWARDED_PROTO,
         );
+
+        $middleware->alias([
+            'require.2fa.setup' => \App\Http\Middleware\RequireTwoFactorSetup::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

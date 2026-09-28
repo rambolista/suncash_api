@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\Settings\GeneralSettingsService;
 use App\Services\TwoFactorChallengeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class LoginController extends Controller
      *
      * POST /api/auth/login
      */
-    public function __invoke(Request $request, TwoFactorChallengeService $challenges): JsonResponse
+    public function __invoke(Request $request, TwoFactorChallengeService $challenges, GeneralSettingsService $generalSettings): JsonResponse
     {
         $request->validate([
             'email' => ['required', 'email'],
@@ -56,6 +57,7 @@ class LoginController extends Controller
 
         return response()->json([
             'token' => $token,
+            'two_factor_setup_required' => $generalSettings->mandatoryTwoFactorEnabled(),
             'user' => [
                 ...$user->loadMissing('roles:id,name')->toArray(),
                 'accessible_menu_ids' => $this->getAccessibleMenuIds($user),

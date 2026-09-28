@@ -98,6 +98,7 @@ use App\Http\Controllers\Api\Promotions\PromoLookupController;
 use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
 use App\Http\Controllers\Api\PublicLandingPageController;
 use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
+use App\Http\Controllers\Api\Settings\GeneralSettingsController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
 use App\Http\Controllers\Api\Settings\SmsGatewaySettingController;
 use App\Http\Controllers\Api\Settings\WuSettingController;
@@ -163,17 +164,20 @@ Route::get('/receipts/{transactionType}/{transactionId}', [TransactionReceiptCon
     ->middleware('signed');
 
 // ── Protected routes (valid Sanctum token required) ────────────────────────
-Route::middleware('auth:sanctum')->group(function () {
+// `require.2fa.setup` blocks every route below until an admin whose 2FA
+// setup is mandatory (Access Management > General Settings) completes it —
+// except the handful of routes the setup flow itself needs to work.
+Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
     // Auth
     Route::prefix('auth')->group(function () {
-        Route::post('/logout', LogoutController::class);
-        Route::get('/user', AuthUserController::class);
+        Route::post('/logout', LogoutController::class)->withoutMiddleware('require.2fa.setup');
+        Route::get('/user', AuthUserController::class)->withoutMiddleware('require.2fa.setup');
         Route::put('/change-password', ChangePasswordController::class);
         Route::post('/unlock', UnlockController::class)->middleware('throttle:5,1');
-        Route::get('/2fa', [TwoFactorSettingsController::class, 'status']);
-        Route::post('/2fa/setup', [TwoFactorSettingsController::class, 'setup'])->middleware('throttle:5,1');
-        Route::post('/2fa/confirm', [TwoFactorSettingsController::class, 'confirm'])->middleware('throttle:10,1');
-        Route::post('/2fa/disable', [TwoFactorSettingsController::class, 'disable']);
+        Route::get('/2fa', [TwoFactorSettingsController::class, 'status'])->withoutMiddleware('require.2fa.setup');
+        Route::post('/2fa/setup', [TwoFactorSettingsController::class, 'setup'])->middleware('throttle:5,1')->withoutMiddleware('require.2fa.setup');
+        Route::post('/2fa/confirm', [TwoFactorSettingsController::class, 'confirm'])->middleware('throttle:10,1')->withoutMiddleware('require.2fa.setup');
+        Route::post('/2fa/disable', [TwoFactorSettingsController::class, 'disable'])->withoutMiddleware('require.2fa.setup');
         Route::put('/pin', [PinController::class, 'update']);
         Route::post('/pin/verify', [PinController::class, 'verify'])->middleware('throttle:5,1');
         Route::delete('/account', DeleteAccountController::class);
@@ -199,6 +203,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/theme-preference', [ThemePreferenceController::class, 'update']);
     Route::put('/project-settings', [ProjectSettingController::class, 'update']);
     Route::get('/customer-menus', [CustomerMenuController::class, 'index']);
+
+    Route::prefix('general-settings')->group(function () {
+        Route::get('/', [GeneralSettingsController::class, 'index']);
+        Route::put('/', [GeneralSettingsController::class, 'update']);
+    });
 
     Route::prefix('favorites')->group(function () {
         Route::get('/', [FavoriteMenuController::class, 'index']);
