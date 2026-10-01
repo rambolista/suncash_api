@@ -164,4 +164,21 @@ return [
         'iv' => env('VOUCHER_IV'),
     ],
 
+    // Tools > Sanddollar Activation — SandDollar's pair-cardless device API
+    // (POST {endpoint}/devices/pair-cardless), signed/decrypted with this
+    // app's own SandDollar PKI keypair (legacy:
+    // admin/libraries/sanddollarpki/{public,private}.key). Legacy only ever
+    // calls the real endpoint when PORTAL_SUBDOMAIN === "prod." — every
+    // other environment gets the same fixed fake pairing response
+    // (sanddollar_model::pairDeviceCardLess's hardcoded else-branch).
+    // Replicated here behind this same `enabled` flag so "Add Account"
+    // works out of the box without real credentials; real endpoint/keys
+    // must be supplied per environment before enabling.
+    'sand_dollar' => [
+        'enabled' => env('SAND_DOLLAR_ENABLED', false),
+        'endpoint' => env('SAND_DOLLAR_ENDPOINT', 'https://api.sanddollar.app'),
+        'public_key' => env('SAND_DOLLAR_PUBLIC_KEY'),
+        'private_key' => env('SAND_DOLLAR_PRIVATE_KEY'),
+    ],
+
 ];
