@@ -121,6 +121,7 @@ use App\Http\Controllers\Api\Tools\CustomerDeviceUuidController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\FeatureReleaseController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
+use App\Http\Controllers\Api\Tools\InstantWinnersController;
 use App\Http\Controllers\Api\Tools\PaymentManagementController;
 use App\Http\Controllers\Api\Tools\PrepaySettingsController;
 use App\Http\Controllers\Api\Tools\RevShareManagementController;
@@ -566,6 +567,12 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
         Route::put('/{id}', [CardBlacklistController::class, 'update'])->whereNumber('id');
         Route::post('/{id}/activate', [CardBlacklistController::class, 'activate'])->whereNumber('id');
         Route::post('/{id}/inactivate', [CardBlacklistController::class, 'inactivate'])->whereNumber('id');
+    });
+
+    Route::prefix('instant-winners')->group(function () {
+        Route::get('/', [InstantWinnersController::class, 'index']);
+        Route::get('/export', [InstantWinnersController::class, 'export']);
+        Route::post('/', [InstantWinnersController::class, 'store']);
     });
 
     Route::prefix('feature-release')->group(function () {
