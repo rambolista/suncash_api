@@ -130,6 +130,7 @@ use App\Http\Controllers\Api\Tools\SmsResponseController;
 use App\Http\Controllers\Api\Tools\TransactionFeeController;
 use App\Http\Controllers\Api\Tools\TransactionLimitController;
 use App\Http\Controllers\Api\Tools\VoucherBatchGenerationController;
+use App\Http\Controllers\Api\Tools\WuBlacklistController;
 use App\Http\Controllers\Api\Transactions\ResendVoucherController;
 use App\Http\Controllers\Api\Transactions\TransactionReceiptController;
 use App\Http\Controllers\Api\Transactions\VoidTransactionController;
@@ -546,6 +547,14 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
         Route::get('/', [CustomerDeviceUuidController::class, 'index']);
         Route::get('/export', [CustomerDeviceUuidController::class, 'export']);
         Route::delete('/{id}', [CustomerDeviceUuidController::class, 'destroy'])->whereNumber('id');
+    });
+
+    Route::prefix('wu-blacklist')->group(function () {
+        Route::get('/', [WuBlacklistController::class, 'index']);
+        Route::get('/export', [WuBlacklistController::class, 'export']);
+        Route::post('/', [WuBlacklistController::class, 'store']);
+        Route::post('/{id}/activate', [WuBlacklistController::class, 'activate'])->whereNumber('id');
+        Route::post('/{id}/inactivate', [WuBlacklistController::class, 'inactivate'])->whereNumber('id');
     });
 
     Route::prefix('feature-release')->group(function () {
