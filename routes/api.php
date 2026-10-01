@@ -116,6 +116,7 @@ use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
 use App\Http\Controllers\Api\Tools\CreditCardFeeController;
 use App\Http\Controllers\Api\Tools\CustomerBenefitsDistributionController;
 use App\Http\Controllers\Api\Tools\CustomerDebitCreditController;
+use App\Http\Controllers\Api\Tools\CustomerDeviceUuidController;
 use App\Http\Controllers\Api\Tools\CustomerManagementController;
 use App\Http\Controllers\Api\Tools\FeatureReleaseController;
 use App\Http\Controllers\Api\Tools\ForexRateController;
@@ -539,6 +540,12 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
     Route::prefix('card-logs')->group(function () {
         Route::get('/', [CardLogsController::class, 'index']);
         Route::get('/export', [CardLogsController::class, 'export']);
+    });
+
+    Route::prefix('customer-device-uuid')->group(function () {
+        Route::get('/', [CustomerDeviceUuidController::class, 'index']);
+        Route::get('/export', [CustomerDeviceUuidController::class, 'export']);
+        Route::delete('/{id}', [CustomerDeviceUuidController::class, 'destroy'])->whereNumber('id');
     });
 
     Route::prefix('feature-release')->group(function () {
