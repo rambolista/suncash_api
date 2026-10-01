@@ -61,6 +61,8 @@ class PromoItemService
         }
         if (! filled($data['item_description'] ?? null)) {
             $errors['item_description'] = ['Item description is required.'];
+        } elseif (strlen((string) $data['item_description']) > 255) {
+            $errors['item_description'] = ['Item description must be 255 characters or fewer.'];
         }
         $quantity = $data['quantity'] ?? null;
         if (! is_numeric($quantity) || (int) $quantity < 1) {
