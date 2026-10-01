@@ -110,6 +110,7 @@ use App\Http\Controllers\Api\Tools\AlivSettingsController;
 use App\Http\Controllers\Api\Tools\BankAccountController;
 use App\Http\Controllers\Api\Tools\BillersSetupController;
 use App\Http\Controllers\Api\Tools\BtcSettingsController;
+use App\Http\Controllers\Api\Tools\CardBlacklistController;
 use App\Http\Controllers\Api\Tools\CardLogsController;
 use App\Http\Controllers\Api\Tools\ComplianceController;
 use App\Http\Controllers\Api\Tools\CreditCardApprovalController;
@@ -555,6 +556,16 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
         Route::post('/', [WuBlacklistController::class, 'store']);
         Route::post('/{id}/activate', [WuBlacklistController::class, 'activate'])->whereNumber('id');
         Route::post('/{id}/inactivate', [WuBlacklistController::class, 'inactivate'])->whereNumber('id');
+    });
+
+    Route::prefix('card-blacklist')->group(function () {
+        Route::get('/', [CardBlacklistController::class, 'index']);
+        Route::get('/export', [CardBlacklistController::class, 'export']);
+        Route::get('/{id}', [CardBlacklistController::class, 'show'])->whereNumber('id');
+        Route::post('/', [CardBlacklistController::class, 'store']);
+        Route::put('/{id}', [CardBlacklistController::class, 'update'])->whereNumber('id');
+        Route::post('/{id}/activate', [CardBlacklistController::class, 'activate'])->whereNumber('id');
+        Route::post('/{id}/inactivate', [CardBlacklistController::class, 'inactivate'])->whereNumber('id');
     });
 
     Route::prefix('feature-release')->group(function () {
