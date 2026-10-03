@@ -100,6 +100,7 @@ use App\Http\Controllers\Api\PublicLandingPageController;
 use App\Http\Controllers\Api\Reports\CashManagementReportController;
 use App\Http\Controllers\Api\Reports\ClientSummaryReportController;
 use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
+use App\Http\Controllers\Api\Reports\MobileTopupReportController;
 use App\Http\Controllers\Api\Reports\SettlementReportController;
 use App\Http\Controllers\Api\Reports\TransactionsReportController;
 use App\Http\Controllers\Api\Reports\UserClientReportController;
@@ -662,6 +663,12 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
     Route::prefix('reports/voucher')->group(function () {
         Route::get('/options', [VoucherReportController::class, 'options']);
         Route::get('/', [VoucherReportController::class, 'index']);
+    Route::prefix('reports/mobile-topup')->group(function () {
+        Route::get('/options', [MobileTopupReportController::class, 'options']);
+        Route::get('/', [MobileTopupReportController::class, 'index']);
+        Route::get('/export', [MobileTopupReportController::class, 'export']);
+    });
+
         Route::get('/export', [VoucherReportController::class, 'export']);
     });
 
