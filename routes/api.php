@@ -97,8 +97,16 @@ use App\Http\Controllers\Api\Promotions\PromoItemController;
 use App\Http\Controllers\Api\Promotions\PromoLookupController;
 use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
 use App\Http\Controllers\Api\PublicLandingPageController;
+use App\Http\Controllers\Api\Reports\CashManagementReportController;
+use App\Http\Controllers\Api\Reports\ClientSummaryReportController;
 use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
+use App\Http\Controllers\Api\Reports\SettlementReportController;
+use App\Http\Controllers\Api\Reports\TransactionsReportController;
+use App\Http\Controllers\Api\Reports\UserClientReportController;
 use App\Http\Controllers\Api\Reports\UtilityBillpayReportController;
+use App\Http\Controllers\Api\Reports\VatReportController;
+use App\Http\Controllers\Api\Reports\VoidReportController;
+use App\Http\Controllers\Api\Reports\VoucherReportController;
 use App\Http\Controllers\Api\Settings\CustomerAppSettingController;
 use App\Http\Controllers\Api\Settings\GeneralSettingsController;
 use App\Http\Controllers\Api\Settings\NotificationSettingController;
@@ -644,6 +652,53 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
         Route::get('/', [UtilityBillpayReportController::class, 'index']);
         Route::get('/billers', [UtilityBillpayReportController::class, 'billers']);
         Route::get('/export', [UtilityBillpayReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/cash-management')->group(function () {
+        Route::get('/{tab}', [CashManagementReportController::class, 'index']);
+        Route::get('/{tab}/export', [CashManagementReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/voucher')->group(function () {
+        Route::get('/options', [VoucherReportController::class, 'options']);
+        Route::get('/', [VoucherReportController::class, 'index']);
+        Route::get('/export', [VoucherReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/void')->group(function () {
+        Route::get('/options', [VoidReportController::class, 'options']);
+        Route::get('/{tab}', [VoidReportController::class, 'index']);
+        Route::get('/{tab}/export', [VoidReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/user-client-management')->group(function () {
+        Route::get('/options', [UserClientReportController::class, 'options']);
+        Route::get('/customers/{id}/transactions', [UserClientReportController::class, 'customerTransactions'])->whereNumber('id');
+        Route::get('/{tab}', [UserClientReportController::class, 'index']);
+        Route::get('/{tab}/export', [UserClientReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/vat')->group(function () {
+        Route::get('/', [VatReportController::class, 'index']);
+    });
+
+    Route::prefix('reports/settlement')->group(function () {
+        Route::get('/summary', [SettlementReportController::class, 'summary']);
+        Route::get('/details', [SettlementReportController::class, 'details']);
+    });
+
+    Route::prefix('reports/client-summary')->group(function () {
+        Route::get('/', [ClientSummaryReportController::class, 'index']);
+        Route::get('/clients', [ClientSummaryReportController::class, 'clients']);
+    });
+
+    Route::prefix('reports/transactions')->group(function () {
+        Route::get('/options', [TransactionsReportController::class, 'options']);
+        Route::get('/scope', [TransactionsReportController::class, 'scope']);
+        Route::get('/summary', [TransactionsReportController::class, 'summary']);
+        Route::get('/details', [TransactionsReportController::class, 'details']);
+        Route::get('/export', [TransactionsReportController::class, 'export']);
+        Route::get('/receipt', [TransactionsReportController::class, 'receipt']);
     });
 
     Route::prefix('customer-debit-credit')->group(function () {
