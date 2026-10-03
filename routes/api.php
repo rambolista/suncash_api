@@ -98,8 +98,10 @@ use App\Http\Controllers\Api\Promotions\PromoLookupController;
 use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
 use App\Http\Controllers\Api\Promotions\TicketPromoSettingController;
 use App\Http\Controllers\Api\PublicLandingPageController;
+use App\Http\Controllers\Api\Reports\AgentManagementReportController;
 use App\Http\Controllers\Api\Reports\CashManagementReportController;
 use App\Http\Controllers\Api\Reports\ClientSummaryReportController;
+use App\Http\Controllers\Api\Reports\GlobalSalesReportController;
 use App\Http\Controllers\Api\Reports\MobileTopupReportController;
 use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
 use App\Http\Controllers\Api\Reports\SettlementReportController;
@@ -661,6 +663,18 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
         Route::get('/', [UtilityBillpayReportController::class, 'index']);
         Route::get('/billers', [UtilityBillpayReportController::class, 'billers']);
         Route::get('/export', [UtilityBillpayReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/agent-management')->group(function () {
+        Route::get('/', [AgentManagementReportController::class, 'index']);
+        Route::get('/export', [AgentManagementReportController::class, 'export']);
+    });
+
+    Route::prefix('reports/global-sales')->group(function () {
+        Route::get('/options', [GlobalSalesReportController::class, 'options']);
+        Route::get('/branches', [GlobalSalesReportController::class, 'branches']);
+        Route::get('/', [GlobalSalesReportController::class, 'index']);
+        Route::get('/export', [GlobalSalesReportController::class, 'export']);
     });
 
     Route::prefix('reports/mobile-topup')->group(function () {
