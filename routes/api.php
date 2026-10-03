@@ -96,11 +96,12 @@ use App\Http\Controllers\Api\Promotions\GrandDrawController;
 use App\Http\Controllers\Api\Promotions\PromoItemController;
 use App\Http\Controllers\Api\Promotions\PromoLookupController;
 use App\Http\Controllers\Api\Promotions\PromoTicketReportController;
+use App\Http\Controllers\Api\Promotions\TicketPromoSettingController;
 use App\Http\Controllers\Api\PublicLandingPageController;
 use App\Http\Controllers\Api\Reports\CashManagementReportController;
 use App\Http\Controllers\Api\Reports\ClientSummaryReportController;
-use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
 use App\Http\Controllers\Api\Reports\MobileTopupReportController;
+use App\Http\Controllers\Api\Reports\MoneyTransferReportController;
 use App\Http\Controllers\Api\Reports\SettlementReportController;
 use App\Http\Controllers\Api\Reports\TransactionsReportController;
 use App\Http\Controllers\Api\Reports\UserClientReportController;
@@ -323,6 +324,13 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
             Route::post('/', [PromoItemController::class, 'store']);
             Route::post('/{id}', [PromoItemController::class, 'update'])->whereNumber('id');
             Route::delete('/{id}', [PromoItemController::class, 'destroy'])->whereNumber('id');
+        });
+
+        Route::prefix('ticket-settings')->group(function () {
+            Route::get('/', [TicketPromoSettingController::class, 'index']);
+            Route::post('/', [TicketPromoSettingController::class, 'store']);
+            Route::put('/{id}', [TicketPromoSettingController::class, 'update'])->whereNumber('id');
+            Route::delete('/{id}', [TicketPromoSettingController::class, 'destroy'])->whereNumber('id');
         });
 
         Route::prefix('geo-promo')->group(function () {
@@ -655,6 +663,12 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
         Route::get('/export', [UtilityBillpayReportController::class, 'export']);
     });
 
+    Route::prefix('reports/mobile-topup')->group(function () {
+        Route::get('/options', [MobileTopupReportController::class, 'options']);
+        Route::get('/', [MobileTopupReportController::class, 'index']);
+        Route::get('/export', [MobileTopupReportController::class, 'export']);
+    });
+
     Route::prefix('reports/cash-management')->group(function () {
         Route::get('/{tab}', [CashManagementReportController::class, 'index']);
         Route::get('/{tab}/export', [CashManagementReportController::class, 'export']);
@@ -663,12 +677,6 @@ Route::middleware(['auth:sanctum', 'require.2fa.setup'])->group(function () {
     Route::prefix('reports/voucher')->group(function () {
         Route::get('/options', [VoucherReportController::class, 'options']);
         Route::get('/', [VoucherReportController::class, 'index']);
-    Route::prefix('reports/mobile-topup')->group(function () {
-        Route::get('/options', [MobileTopupReportController::class, 'options']);
-        Route::get('/', [MobileTopupReportController::class, 'index']);
-        Route::get('/export', [MobileTopupReportController::class, 'export']);
-    });
-
         Route::get('/export', [VoucherReportController::class, 'export']);
     });
 
